@@ -15,7 +15,6 @@ export function useAuth() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [ssoLoading, setSsoLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleRedirect = () => {
@@ -35,25 +34,40 @@ export function useAuth() {
     setLoading(true);
     try {
       const response = await loginApi(userName, password);
-      if (response) {
+      if (response && response.access_token) {
         setUserSession({
           accessToken: response.access_token,
-          refreshToken: response.refresh_token,
-          username: userName,
+          username: response.user_name || userName,
+          userRole: response.user_role,
+          name: response.name,
         });
-        const user = await getUserProfile(userName);
-        if (user) {
-          setUser(user);
-          handleRedirect();
-        } else {
-          setError("An error occurred. Please try again.");
+
+        try {
+          const userProfile = await getUserProfile(response.user_name || userName);
+          if (userProfile) {
+            setUser(userProfile);
+          }
+        } catch {
+          // Fallback user profile if profile service endpoint is unavailable
+          setUser({
+            id: String(response.user_name || userName),
+            name: response.name || userName,
+            email: "",
+            phone: "",
+            gender: "",
+            zipcode: "",
+            profilePicture: "",
+            address: "",
+          });
         }
+        handleRedirect();
       } else {
-        setError("Invalid credentials. Please register first.");
+        setError("Invalid username or password.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("An error occurred. Please try again.");
+      const message = err.response?.data?.detail || "Invalid credentials. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -79,6 +93,7 @@ export function useAuth() {
       };
     }
   }
+
   function logout() {
     clearState();
     navigate("/");
@@ -99,8 +114,6 @@ export function useAuth() {
     setError,
     loading,
     setLoading,
-    ssoLoading,
-    setSsoLoading,
     handleSubmit,
     handleRedirect,
     logout,

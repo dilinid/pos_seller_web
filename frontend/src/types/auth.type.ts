@@ -1,22 +1,14 @@
-export interface RegisterRequest {
-    username: string;
-    fullname: string;
-    email: string;
-    nic: string;
-    dob: string;
-    phoneNumber: string;
-    password: string;
-    confirmPassword: string;
-}
-
 export interface LoginResponse {
     access_token: string;
-    refresh_token: string;
+    token_type?: string;
+    user_role?: string;
+    user_name?: string;
+    name?: string;
 }
-
 
 export interface UserSession {
     accessToken: string;
-    refreshToken: string;
     username: string;
+    userRole?: string;
+    name?: string;
 }

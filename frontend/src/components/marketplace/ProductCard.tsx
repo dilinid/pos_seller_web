@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Minus } from 'lucide-react';
-import type { Product, CartItem, Seller, ProductSubCategory } from '../../types/marketplace.type';
+import type { Product, CartItem, ProductSubCategory } from '../../types/marketplace.type';
 import { useMarketplaceStore } from '../../stores/marketplace.store';
-import { SELLERS } from '../../data/sellers';
 import { MARKETPLACE_CATEGORIES } from '../../data/categories';
-import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { StarRating } from '../ui/StarRating';
 
@@ -17,10 +15,6 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ product, cartItem }) => {
   const addToCart = useMarketplaceStore((s) => s.addToCart);
   const updateQuantity = useMarketplaceStore((s) => s.updateQuantity);
-  const seller = useMemo<Seller | undefined>(
-    () => SELLERS.find((s) => s.id === product.sellerId),
-    [product.sellerId]
-  );
 
   const subCategory = useMemo<ProductSubCategory | undefined>(() => {
     for (const cat of MARKETPLACE_CATEGORIES) {
@@ -109,12 +103,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, cartItem }) =
           </div>
           <PriceDisplay price={product.price} mrp={product.mrp} size="md" showDiscountBadge />
         </div>
-
-        {seller && (
-          <div style={{ marginBottom: '8px' }}>
-            <SellerBadge seller={seller} size="sm" to={`/store/${seller.id}`} />
-          </div>
-        )}
 
         {cartItem ? (
           <div
