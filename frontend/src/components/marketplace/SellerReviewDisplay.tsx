@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Star, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import type { Seller, UserReview } from '../../types/marketplace.type';
 import { StarRating } from '../ui/StarRating';
 

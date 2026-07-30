@@ -62,7 +62,7 @@ const Login: React.FC = () => {
           <p style={{
             color: 'var(--text-secondary)',
             fontSize: '0.85rem'
-          }}>Access fresh carts and connected finance accounts</p>
+          }}>Access fresh carts</p>
         </div>
 
         {error && (

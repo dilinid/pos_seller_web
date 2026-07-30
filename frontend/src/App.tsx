@@ -8,8 +8,6 @@ import PaymentPage from './pages/PaymentPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
-import BankSelection from './pages/BankSelection';
-import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import BecomeSeller from './pages/BecomeSeller';
 import SellerDashboard from './pages/SellerDashboard';
@@ -107,23 +105,6 @@ const AppContent: React.FC = () => {
           } 
         />
 
-        {/* Secured connected banking portal routes */}
-        <Route 
-          path="/banks" 
-          element={
-            <ProtectedRoute>
-              <BankSelection />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/dashboard/:bankId" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
         <Route 
           path="/profile" 
           element={

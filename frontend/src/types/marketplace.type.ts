@@ -39,6 +39,7 @@ export interface ProductSubCategory {
   name: string;
   slug: string;
   icon: string;
+  subCategories?: ProductSubCategory[];
 }
 
 export interface ProductCategory {
@@ -67,6 +68,8 @@ export interface Product {
   specifications: Record<string, string>;
   weight: number | null;
   volume: number | null;
+  quantity: number;
+  reorderLevel: number | null;
 }
 
 export interface CartItem {
@@ -165,12 +168,10 @@ export interface Review {
 export interface MarketplaceStore {
   products: Product[];
   sellers: Seller[];
-  categories: ProductCategory[];
+  categories: ProductSubCategory[];
   cart: CartItem[];
-  selectedCategory: string | null;
   selectedSubCategory: string | null;
   searchQuery: string;
-  setCategory: (id: string | null) => void;
   setSubCategory: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   addToCart: (product: Product) => void;

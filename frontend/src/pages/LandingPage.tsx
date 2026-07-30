@@ -13,18 +13,16 @@ const LandingPage: React.FC = () => {
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const products = useMarketplaceStore((s) => s.products);
-  const selectedCategory = useMarketplaceStore((s) => s.selectedCategory);
   const selectedSubCategory = useMarketplaceStore((s) => s.selectedSubCategory);
 
   const filteredProducts = useMemo(() =>
     products.filter((product) => {
-      const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
       const matchesSubCategory = !selectedSubCategory || product.subCategoryId === selectedSubCategory;
       const q = searchQuery.toLowerCase();
       const matchesSearch = !q || product.name.toLowerCase().includes(q) || product.description.toLowerCase().includes(q);
-      return matchesCategory && matchesSubCategory && matchesSearch;
+      return matchesSubCategory && matchesSearch;
     }),
-    [products, selectedCategory, selectedSubCategory, searchQuery]
+    [products, selectedSubCategory, searchQuery]
   );
 
   const [isCartOpen, setIsCartOpen] = useState(false);

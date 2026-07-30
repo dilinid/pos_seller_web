@@ -99,22 +99,27 @@ export const getMockTransactions = (
           ? shareDescs
           : savingsDescs;
 
+  let runningBalance = 50000;
+
   return Array.from({ length: TRANSACTION_MAX_ITEMS }, (_, idx) => {
     const item = items[idx % items.length];
     const cycle = Math.floor(idx / items.length);
     const date = new Date();
     date.setDate(date.getDate() - idx - 2 - cycle);
 
+    runningBalance -= item.amount;
+
     return {
-      id: `TX-${seed + idx * 179}-${cycle + 1}`,
+      id: seed + idx,
       date: date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       }),
       desc: item.desc,
+      balance: runningBalance,
       amount: item.amount,
-      type: item.type,
+      type: item.type === 'credit' ? 'Credit' : 'Debit',
       status: idx === 0 && seed % 3 === 0 ? 'Pending' : 'Completed',
     };
   });

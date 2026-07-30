@@ -35,8 +35,8 @@ const ProductDetail: React.FC = () => {
   const product = useMemo(() => products.find((p) => p.id === productId), [products, productId]);
   const seller = useMemo(() => sellers.find((s) => s.id === product?.sellerId), [sellers, product?.sellerId]);
   const category = useMemo(
-    () => categories.find((c) => c.id === product?.categoryId),
-    [categories, product?.categoryId]
+    () => categories.find((c) => c.id === product?.subCategoryId),
+    [categories, product?.subCategoryId]
   );
   const reviews = useMemo(() => {
     const staticReviews = REVIEWS.filter((r) => r.productId === productId);

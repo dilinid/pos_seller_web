@@ -1,6 +1,6 @@
 import { useMemo, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, MapPin, CreditCard, FileText } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, MapPin, CreditCard } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
 import { PaymentStatusBadge } from '../components/marketplace/OrderStatusBadge';
@@ -8,7 +8,7 @@ import { OrderSellerGroup } from '../components/marketplace/OrderSellerGroup';
 import { PaymentSlipUpload } from '../components/marketplace/PaymentSlipUpload';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
-import type { UserReview } from '../types/marketplace.type';
+import type { UserReview, OrderItem } from '../types/marketplace.type';
 
 const OrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, Package, Truck, MapPin, Clock, CheckCircle, FileEdit, Send, Loader2 } from 'lucide-react';
+import { X, CheckCircle, FileEdit, Send, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSellerStore } from '../../stores/seller.store';
 import { ProductStatusBadge } from './ProductStatusBadge';

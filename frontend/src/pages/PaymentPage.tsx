@@ -148,10 +148,6 @@ const PaymentPage: React.FC = () => {
     return `****${num.slice(-4)}`;
   }
 
-  function formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR', minimumFractionDigits: 2 }).format(amount);
-  }
-
   const handlePlaceOrder = () => {
     if (paymentMethod === 'bank' && !selectedAccountSufficient) return;
     if (paymentMethod === 'bank') {
@@ -215,7 +211,6 @@ const PaymentPage: React.FC = () => {
       }));
     });
 
-    const initialStatus = paymentMethod === 'payment_slip' ? 'pending' : 'confirmed';
     const paymentStatus = paymentMethod === 'bank' || paymentMethod === 'card' ? 'paid' as const
       : paymentMethod === 'cod' ? 'pending' as const
       : 'awaiting_receipt' as const;
@@ -256,7 +251,7 @@ const PaymentPage: React.FC = () => {
             <CheckCircle2 size={48} color="var(--accent)" style={{ marginBottom: '12px' }} />
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '6px' }}>Order Placed!</h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '8px' }}>
-              {paymentMethod === 'bank' && `We've debited ${selectedAccount?.type || 'your account'} for $${grandTotal.toFixed(2)}.`}
+              {paymentMethod === 'bank' && `We've debited ${selectedAccount?.accountName || 'your account'} for $${grandTotal.toFixed(2)}.`}
               {paymentMethod === 'card' && 'Your payment has been processed successfully.'}
               {paymentMethod === 'cod' && 'Pay when you receive your order. No upfront payment needed.'}
               {paymentMethod === 'payment_slip' && 'Upload your payment receipt in your orders section to complete payment.'}
@@ -490,7 +485,7 @@ const PaymentPage: React.FC = () => {
                     {paymentMethod === 'cod' && <Banknote size={16} color="var(--primary)" />}
                     <span style={{ color: 'var(--text-secondary)' }}>
                       Paying via <strong style={{ color: 'var(--text-primary)' }}>
-                        {paymentMethod === 'bank' ? (selectedAccount?.type || 'Account') :
+                        {paymentMethod === 'bank' ? (selectedAccount?.accountName || 'Account') :
                          paymentMethod === 'card' ? 'Credit / Debit Card' :
                          paymentMethod === 'cod' ? 'Cash on Delivery' :
                          'Payment Slip'}

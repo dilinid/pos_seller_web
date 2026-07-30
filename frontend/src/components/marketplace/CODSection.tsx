@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Banknote, CheckCircle, Clock, XCircle, ArrowRight } from 'lucide-react';
+import { Banknote, CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import type { CODRequest } from '../../types/cod.type';
 import type { UserProfile } from '../../types/profile.type';
 import type { Order } from '../../types/marketplace.type';

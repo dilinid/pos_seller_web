@@ -1,8 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Clock, CreditCard, Banknote, Receipt, Star } from 'lucide-react';
+import { ShoppingBag, CreditCard, Banknote, Receipt, Star } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
-import { useAuthStore } from '../stores/auth.store';
 import { OrderStatusBadge } from '../components/marketplace/OrderStatusBadge';
 import type { OrderStatus } from '../types/marketplace.type';
 import Navbar from '../components/Navbar';
@@ -39,13 +38,7 @@ const OrdersPage: React.FC = () => {
   const sellers = useMarketplaceStore((s) => s.sellers);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
-  const seedBuyerOrders = useMarketplaceStore((s) => s.seedBuyerOrders);
-  const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('all');
-
-  useEffect(() => {
-    if (user?.name) seedBuyerOrders(user.name);
-  }, [seedBuyerOrders, user?.name]);
 
   const filteredOrders = useMemo(() => {
     let list = orders;
@@ -133,7 +126,7 @@ const OrdersPage: React.FC = () => {
                     const stepOrder = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'];
                     const currentIdx = stepOrder.indexOf(item.status);
                     const latestIdx = stepOrder.indexOf(latest);
-                    return currentIdx < latestIdx || latest === '' ? item.status : latest;
+                    return currentIdx < latestIdx ? item.status : latest;
                   }, order.items[0]?.status ?? 'pending');
 
                   const needsPaymentSlip = order.paymentMethod === 'payment_slip' && order.paymentStatus === 'awaiting_receipt';

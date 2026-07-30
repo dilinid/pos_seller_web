@@ -44,6 +44,8 @@ function mapRawToProduct(raw: MarketplaceProductRaw): Product {
     specifications: raw.specifications,
     weight: raw.weight,
     volume: raw.volume,
+    quantity: raw.stock,
+    reorderLevel: null,
   };
 }
 

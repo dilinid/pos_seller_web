@@ -1,4 +1,4 @@
-import { Check, Clock, User, Store } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 import type { ReviewPeriod } from '../../types/marketplace.type';
 
 interface MutualReviewStatusProps {
@@ -11,7 +11,6 @@ interface MutualReviewStatusProps {
 export const MutualReviewStatus: React.FC<MutualReviewStatusProps> = ({
   period, compact, buyerName, sellerName,
 }) => {
-  const expired = new Date(period.expiresAt) < new Date();
 
   const buyerDone = period.buyerReviewedProduct || period.buyerReviewedSeller;
   const sellerDone = period.sellerReviewedBuyer;

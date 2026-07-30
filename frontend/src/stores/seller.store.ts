@@ -24,8 +24,8 @@ export const useSellerStore = create<SellerStoreState>()(
         const newProfile: SellerProfile = {
           id: generateId(),
           userId,
-          contactEmail: data.contactEmail || userEmail,
           ...data,
+          contactEmail: data.contactEmail || userEmail,
           districtFees: data.districtFees ?? {},
           freeDeliveryMin: data.freeDeliveryMin ?? null,
           weightFeeBrackets: data.weightFeeBrackets ?? [],
@@ -67,12 +67,13 @@ export const useSellerStore = create<SellerStoreState>()(
           profiles: state.profiles.map((p) =>
             p.id === sellerId
               ? {
-                  ...p, ...updates,
-                  districtFees: updates.districtFees ?? p.districtFees ?? {},
-                  freeDeliveryMin: updates.freeDeliveryMin ?? p.freeDeliveryMin ?? null,
-                  weightFeeBrackets: updates.weightFeeBrackets ?? p.weightFeeBrackets ?? [],
-                  volumeFeeBrackets: updates.volumeFeeBrackets ?? p.volumeFeeBrackets ?? [],
-                  quantityFeeBrackets: updates.quantityFeeBrackets ?? p.quantityFeeBrackets ?? [],
+                  ...p,
+                  ...updates,
+                  districtFees: (updates as any).districtFees ?? p.districtFees ?? {},
+                  freeDeliveryMin: (updates as any).freeDeliveryMin ?? p.freeDeliveryMin ?? null,
+                  weightFeeBrackets: (updates as any).weightFeeBrackets ?? p.weightFeeBrackets ?? [],
+                  volumeFeeBrackets: (updates as any).volumeFeeBrackets ?? p.volumeFeeBrackets ?? [],
+                  quantityFeeBrackets: (updates as any).quantityFeeBrackets ?? p.quantityFeeBrackets ?? [],
                 }
               : p,
           ),

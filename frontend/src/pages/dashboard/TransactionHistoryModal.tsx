@@ -251,7 +251,7 @@ const TransactionHistoryModal = ({
                           {tx.date}
                         </span>
 
-                        {((tx.interest ?? tx.intrest ?? 0) > 0 ||
+                        {((tx.interest ?? 0) > 0 ||
                           (tx.otherCharges ?? 0) > 0) && (
                           <div
                             style={{
@@ -261,10 +261,10 @@ const TransactionHistoryModal = ({
                               marginTop: "6px",
                             }}
                           >
-                            {(tx.interest ?? tx.intrest ?? 0) > 0
+                            {(tx.interest ?? 0) > 0
                               ? renderChargeDetail(
                                   "Interest",
-                                  tx.interest ?? tx.intrest ?? 0,
+                                  tx.interest ?? 0,
                                   "primary",
                                 )
                               : null}
