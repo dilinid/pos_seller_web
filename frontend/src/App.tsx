@@ -8,7 +8,6 @@ import PaymentPage from './pages/PaymentPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import BankSelection from './pages/BankSelection';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -104,14 +103,6 @@ const AppContent: React.FC = () => {
           element={
             <PublicRoute>
               <Login />
-            </PublicRoute>
-          } 
-        />
-        <Route 
-          path="/register" 
-          element={
-            <PublicRoute>
-              <Register />
             </PublicRoute>
           } 
         />

@@ -2,7 +2,6 @@ import React from 'react';
 import { Phone, Lock, Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
-import { Link } from 'react-router-dom';
 
 const Login: React.FC = () => {
   const { handleSubmit, loading, error, userName, setUserName, password, setPassword, showPassword, setShowPassword } = useAuth();
@@ -195,22 +194,6 @@ const Login: React.FC = () => {
             )}
           </button>
         </form>
-
-        {/* Redirect */}
-        <div style={{
-          marginTop: '24px',
-          fontSize: '0.85rem',
-          color: 'var(--text-secondary)'
-        }}>
-          New to the portal?{' '}
-          <Link to="/register" style={{
-            color: 'var(--primary)',
-            textDecoration: 'none',
-            fontWeight: 600
-          }}>
-            Create an Account
-          </Link>
-        </div>
 
       </div>
     </div>

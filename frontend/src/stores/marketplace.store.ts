@@ -4,6 +4,7 @@ import type { Product, CartItem, ProductSubCategory, Seller, PaymentMethodType, 
 import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
 import { SELLERS } from '../data/sellers';
+import { fetchMarketplaceProducts } from '../apis/marketplace.api';
 
 interface MarketplaceStoreState {
   products: Product[];
@@ -13,10 +14,13 @@ interface MarketplaceStoreState {
   selectedCategory: string | null;
   selectedSubCategory: string | null;
   searchQuery: string;
+  productsLoading: boolean;
+  productsError: string | null;
 
   setCategory: (id: string | null) => void;
   setSubCategory: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
+  loadProducts: () => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -81,6 +85,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       selectedCategory: MARKETPLACE_CATEGORIES[0]?.id ?? null,
       selectedSubCategory: null,
       searchQuery: '',
+      productsLoading: false,
+      productsError: null,
       ...CHECKOUT_INIT,
       orders: [],
       allReviews: [],
@@ -96,6 +102,17 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       },
 
       setSearchQuery: (query) => set({ searchQuery: query }),
+
+      loadProducts: async () => {
+        set({ productsLoading: true, productsError: null });
+        try {
+          const products = await fetchMarketplaceProducts();
+          set({ products, productsLoading: false });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load products';
+          set({ productsError: message, productsLoading: false });
+        }
+      },
 
       addToCart: (product) => {
         const { cart } = get();
