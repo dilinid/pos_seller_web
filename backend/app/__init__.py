@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
 from app.routes.auth import router as auth_router
+from app.routes.marketplace import router as marketplace_router
 
 
 @asynccontextmanager
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(auth_router)
+    app.include_router(marketplace_router)
 
     # Health check
     @app.get("/api/health")
