@@ -9,7 +9,6 @@ import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
-import BecomeSeller from './pages/BecomeSeller';
 import SellerDashboard from './pages/SellerDashboard';
 import SellerSettings from './pages/SellerSettings';
 import SellerProducts from './pages/SellerProducts';
@@ -42,7 +41,7 @@ const SellerOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const user = useAuthStore((s) => s.user);
   const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id) : false));
   if (!user) return <Navigate to="/login" replace />;
-  if (!isSeller) return <Navigate to="/become-seller" replace />;
+  if (!isSeller) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -116,7 +115,6 @@ const AppContent: React.FC = () => {
 
         {/* Seller Portal Routes */}
         <Route path="/seller/login" element={<Navigate to="/" replace />} />
-        <Route path="/become-seller" element={<ProtectedRoute><BecomeSeller /></ProtectedRoute>} />
         <Route
           path="/seller"
           element={

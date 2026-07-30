@@ -400,22 +400,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 }}>
                   ⏳ Pending Review
                 </span>
-              ) : (
-                <button
-                  onClick={() => navigate('/become-seller')}
-                  style={{
-                    background: '#f1f5f9', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', fontWeight: 500,
-                    fontSize: '0.75rem', padding: '4px 12px', borderRadius: '20px',
-                    fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
-                    lineHeight: 1.4, transition: 'background 0.15s, color 0.15s',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = 'var(--primary)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                >
-                  Become a Seller
-                </button>
-              )}
+              ) : null}
               <div
                 onClick={() => navigate("/profile")}
                 style={{
