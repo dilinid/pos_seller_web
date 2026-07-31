@@ -39,7 +39,8 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Seller-only route guard — user must be authenticated AND an approved seller
 const SellerOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const user = useAuthStore((s) => s.user);
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id) : false));
+  const userRole = useAuthStore((s) => s.userSession?.userRole);
+  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userRole) : false));
   if (!user) return <Navigate to="/login" replace />;
   if (!isSeller) return <Navigate to="/" replace />;
   return <>{children}</>;

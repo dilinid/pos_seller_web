@@ -27,7 +27,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { userSession, loading, user, logout } = useAuth();
   const isAuthenticated = !!userSession;
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id) : false));
+  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userSession?.userRole) : false));
   const hasPending = useSellerStore((s) => (user ? s.hasPendingApplication(user.id) : false));
   const cart = useMarketplaceStore((s) => s.cart);
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);

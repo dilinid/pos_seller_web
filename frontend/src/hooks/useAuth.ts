@@ -5,6 +5,10 @@ import { fetchUserProfile } from "../apis/profile.api";
 import type { UserProfile } from "../types/profile.type";
 import { loginApi } from "../apis/auth.api";
 
+// Bounds match the backend `it_user_master.user_name`/`password` column widths.
+const MAX_USERNAME_LENGTH = 50;
+const MAX_PASSWORD_LENGTH = 500;
+
 export function useAuth() {
   const navigate = useNavigate();
   const { userSession, user, setUserSession, clearState, setUser } =
@@ -25,45 +29,51 @@ export function useAuth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userName || !password) {
+    const trimmedUserName = userName.trim();
+
+    if (!trimmedUserName || !password) {
       setError("Please fill in all fields");
+      return;
+    }
+    if (trimmedUserName.length > MAX_USERNAME_LENGTH) {
+      setError(`Username must be at most ${MAX_USERNAME_LENGTH} characters`);
+      return;
+    }
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      setError(`Password must be at most ${MAX_PASSWORD_LENGTH} characters`);
       return;
     }
 
     setError("");
     setLoading(true);
     try {
-      const response = await loginApi(userName, password);
-      if (response && response.access_token) {
-        setUserSession({
-          accessToken: response.access_token,
-          username: response.user_name || userName,
-          userRole: response.user_role,
-          name: response.name,
-        });
+      const response = await loginApi(trimmedUserName, password);
+      setUserSession({
+        accessToken: response.access_token,
+        username: response.user_name || trimmedUserName,
+        userRole: response.user_role,
+        name: response.name,
+      });
 
-        try {
-          const userProfile = await getUserProfile(response.user_name || userName);
-          if (userProfile) {
-            setUser(userProfile);
-          }
-        } catch {
-          // Fallback user profile if profile service endpoint is unavailable
-          setUser({
-            id: String(response.user_name || userName),
-            name: response.name || userName,
-            email: "",
-            phone: "",
-            gender: "",
-            zipcode: "",
-            profilePicture: "",
-            address: "",
-          });
+      try {
+        const userProfile = await getUserProfile(response.user_name || trimmedUserName);
+        if (userProfile) {
+          setUser(userProfile);
         }
-        handleRedirect();
-      } else {
-        setError("Invalid username or password.");
+      } catch {
+        // Fallback user profile if profile service endpoint is unavailable
+        setUser({
+          id: String(response.user_name || trimmedUserName),
+          name: response.name || trimmedUserName,
+          email: "",
+          phone: "",
+          gender: "",
+          zipcode: "",
+          profilePicture: "",
+          address: "",
+        });
       }
+      handleRedirect();
     } catch (err: any) {
       console.error(err);
       const message = err.response?.data?.detail || "Invalid credentials. Please try again.";

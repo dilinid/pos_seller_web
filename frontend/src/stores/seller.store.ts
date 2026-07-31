@@ -10,7 +10,7 @@ interface SellerStoreState {
   profiles: SellerProfile[];
   submitApplication: (userId: string, userEmail: string, data: SellerApplicationSubmission) => Promise<SellerProfile>;
   getProfileByUserId: (userId: string) => SellerProfile | undefined;
-  isSeller: (userId: string) => boolean;
+  isSeller: (userId: string, userRole?: string | null) => boolean;
   hasPendingApplication: (userId: string) => boolean;
   updateProfile: (sellerId: string, updates: Partial<SellerProfile>) => void;
 }
@@ -54,7 +54,8 @@ export const useSellerStore = create<SellerStoreState>()(
         return get().profiles.find((p) => p.userId === userId && p.status === 'approved');
       },
 
-      isSeller: (userId: string) => {
+      isSeller: (userId: string, userRole?: string | null) => {
+        if (userRole === 'ADMIN') return true;
         return get().profiles.some((p) => p.userId === userId && p.status === 'approved');
       },
 
