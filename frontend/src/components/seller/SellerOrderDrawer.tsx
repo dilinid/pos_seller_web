@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, MapPin, Phone, Mail, Package, Truck, ClipboardList, Star, Store, User } from 'lucide-react';
+import { X, MapPin, Phone, Mail, ClipboardList, Star, Store, Truck } from 'lucide-react';
 import type { Order, OrderStatus, UserReview, ReviewPeriod } from '../../types/marketplace.type';
 import { OrderStatusBadge } from '../marketplace/OrderStatusBadge';
 import { StarRating } from '../ui/StarRating';

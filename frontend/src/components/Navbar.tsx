@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useMarketplaceStore } from "../stores/marketplace.store";
 import {
   Menu,
-  Landmark,
   ShoppingCart,
   LogOut,
   Search,
@@ -13,7 +12,6 @@ import {
   Layers,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { useDashboard } from "../hooks/useDashboard";
 import { useSellerStore } from "../stores/seller.store";
 
 interface NavbarProps {
@@ -29,9 +27,8 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { userSession, loading, user, logout } = useAuth();
   const isAuthenticated = !!userSession;
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id) : false));
+  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userSession?.userRole) : false));
   const hasPending = useSellerStore((s) => (user ? s.hasPendingApplication(user.id) : false));
-  const { selectedCreditUnion } = useDashboard();
   const cart = useMarketplaceStore((s) => s.cart);
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
@@ -39,17 +36,6 @@ const Navbar: React.FC<NavbarProps> = ({
   const location = useLocation();
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
-
-  const handleBankAccess = () => {
-    setIsMainMenuOpen(false);
-    if (isAuthenticated) {
-      navigate("/banks");
-    } else {
-      // Save redirect target and route to secure login page
-      localStorage.setItem("auth_redirect", "/banks");
-      navigate("/login");
-    }
-  };
 
   const isShoppingPage = location.pathname === "/";
 
@@ -130,29 +116,6 @@ const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 </div>
 
-                {/* Connected Banks (Dynamic menu option) */}
-                <div
-                  onClick={handleBankAccess}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    color: "var(--primary)",
-                    fontWeight: 700,
-                    fontSize: "0.88rem",
-                    background: "var(--primary-light)",
-                    transition: "var(--transition-fast)",
-                    position: "relative",
-                  }}
-                >
-                  <Landmark size={16} />
-                  <span>Connected Banks</span>
-                </div>
-
-                {/* Departments */}
                 <div
                   onClick={() => {
                     setIsMainMenuOpen(false);
@@ -328,38 +291,6 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* RIGHT SIDE: BANK SHORTCUT, CART DRAWER, AND MEMBER SIGN-IN */}
         <div className="navbar-right-actions">
-          {/* QUICK ACCESSED BANK STATUS BADGE */}
-          {isAuthenticated && selectedCreditUnion && (
-            <div
-              onClick={() => navigate("/dashboard")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: "16px",
-                background: "var(--primary-light)",
-                color: "var(--primary)",
-                fontSize: "0.8rem",
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-                border: "1px solid rgba(0, 96, 229, 0.1)",
-              }}
-              title="Active Synchronized Bank core"
-            >
-              {/* <span>{selectedBank.logo}</span> */}
-              <Landmark size={12} />
-              <span>
-                {selectedCreditUnion.nameLn1
-                  .toUpperCase()
-                  .split(" ")
-                  .map((word) => word[0])
-                  .join("")}{" "}
-                Active
-              </span>
-            </div>
-          )}
-
           {/* CART DRAWER TOGGLE (Only active/visible on catalog/shopping checkout view) */}
           {onCartToggle && (
             <button
@@ -469,22 +400,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 }}>
                   ⏳ Pending Review
                 </span>
-              ) : (
-                <button
-                  onClick={() => navigate('/become-seller')}
-                  style={{
-                    background: '#f1f5f9', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', fontWeight: 500,
-                    fontSize: '0.75rem', padding: '4px 12px', borderRadius: '20px',
-                    fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
-                    lineHeight: 1.4, transition: 'background 0.15s, color 0.15s',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = 'var(--primary)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                >
-                  Become a Seller
-                </button>
-              )}
+              ) : null}
               <div
                 onClick={() => navigate("/profile")}
                 style={{

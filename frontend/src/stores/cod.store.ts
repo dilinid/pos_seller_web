@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CODStatus, CODRequest } from '../types/cod.type';
+import type { CODRequest } from '../types/cod.type';
 import type { Order } from '../types/marketplace.type';
 import type { UserProfile } from '../types/profile.type';
 

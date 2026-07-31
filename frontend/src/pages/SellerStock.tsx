@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { useProductDraftStore } from '../stores/product-draft.store';
 import { StockItemRow } from '../components/seller/StockItemRow';
 import { StockBadge } from '../components/ui/StockBadge';
-import { sortByStockPriority, groupByStockStatus, isLowStock } from '../utils/stock.utils';
+import { sortByStockPriority, groupByStockStatus } from '../utils/stock.utils';
 
 const SellerStock: React.FC = () => {
   const navigate = useNavigate();

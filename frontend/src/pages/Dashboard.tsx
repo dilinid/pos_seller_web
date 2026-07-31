@@ -259,7 +259,7 @@ const Dashboard = () => {
                       return {
                         accNo: account.refAccountNumber,
                         balance: account.totalBalance,
-                        interestRate: account.intrestRate,
+                        interestRate: account.interestRate,
                         type: account.nameLn1,
                         currency: "LKR",
                       };
@@ -317,7 +317,7 @@ const Dashboard = () => {
                         fdNo: account.refAccountNumber,
                         name: account.nameLn1,
                         balance: account.totalBalance,
-                        interestRate: account.intrestRate,
+                        interestRate: account.interestRate,
                         openDate: account.openDate,
                         renewDate: account.renewDate,
                       }),
@@ -341,6 +341,10 @@ const Dashboard = () => {
                       name: account.nameLn1,
                       shareNo: account.refAccountNumber,
                       balance: account.totalBalance,
+                      units: 0,
+                      averageCost: 0,
+                      currentPrice: 0,
+                      changePercent: 0,
                     })) || []
                   }
                   loading={loadingAccounts}
@@ -402,7 +406,7 @@ const Dashboard = () => {
             desc: t.description || "--",
             type: t.type,
             balance: t.balance,
-            intrest: t.interest || 0,
+            interest: t.interest || 0,
             otherCharges: (t.insurence || 0) + (t.fee || 0) + (t.penalty || 0),
           })) || []
         }

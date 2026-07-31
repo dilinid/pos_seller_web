@@ -78,7 +78,7 @@ const SellerProducts: React.FC = () => {
     updateDraft(id, { reorderLevel });
     const draft = drafts.find((d) => d.id === id);
     if (draft?.publishedProductId) {
-      useMarketplaceStore.getState().updateProduct(draft.publishedProductId, { reorderLevel });
+      useMarketplaceStore.getState().updateProduct(draft.publishedProductId || draft.id, { reorderLevel });
     }
     setSelectedDraft((prev) => prev && prev.id === id ? { ...prev, reorderLevel } : prev);
   }, [updateDraft, drafts]);

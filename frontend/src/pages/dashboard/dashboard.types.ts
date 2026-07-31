@@ -14,7 +14,7 @@ export interface DashboardTransaction {
   balance: number;
   amount: number;
   type: TransactionType;
-  intrest?: number;
+  interest?: number;
   otherCharges?: number;
 }
 
@@ -61,4 +61,6 @@ export interface DashboardGuaranteedLoan {
   balance: number;
   pastDue: number;
   pastDueDays: number;
+  interestRate?: number;
+  nextDueDate?: string;
 }

@@ -35,7 +35,6 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ status }) => {
       {ORDER_TIMELINE_STEPS.map((step, idx) => {
         const isComplete = idx < currentStep;
         const isCurrent = idx === currentStep;
-        const isPending = idx > currentStep;
 
         return (
           <div key={step.key} style={{ display: 'flex', gap: '12px' }}>

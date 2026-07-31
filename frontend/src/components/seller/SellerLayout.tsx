@@ -6,7 +6,6 @@ import { useAuthStore } from '../../stores/auth.store';
 
 export const SellerLayout: React.FC = () => {
   const navigate = useNavigate();
-  const updateProfile = useSellerStore((s) => s.updateProfile);
   const user = useAuthStore((s) => s.user);
   const profile = useSellerStore((s) => s.profiles.find((p) => p.userId === user?.id && p.status === 'approved'));
 

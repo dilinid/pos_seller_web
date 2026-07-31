@@ -10,12 +10,6 @@ import { SellerReviewDisplay } from '../components/marketplace/SellerReviewDispl
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 
-const SkeletonBlock: React.FC<{ width?: string; height?: string; borderRadius?: string }> = ({
-  width = '100%', height = '16px', borderRadius = '8px',
-}) => (
-  <div className="skeleton-block" style={{ width, height, borderRadius }} />
-);
-
 const SellerStorefront: React.FC = () => {
   const { sellerId } = useParams<{ sellerId: string }>();
   const navigate = useNavigate();

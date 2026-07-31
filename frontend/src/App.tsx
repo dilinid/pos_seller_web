@@ -8,10 +8,7 @@ import PaymentPage from './pages/PaymentPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
-import BankSelection from './pages/BankSelection';
-import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
-import BecomeSeller from './pages/BecomeSeller';
 import SellerDashboard from './pages/SellerDashboard';
 import SellerSettings from './pages/SellerSettings';
 import SellerProducts from './pages/SellerProducts';
@@ -42,9 +39,10 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Seller-only route guard — user must be authenticated AND an approved seller
 const SellerOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const user = useAuthStore((s) => s.user);
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id) : false));
+  const userRole = useAuthStore((s) => s.userSession?.userRole);
+  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userRole) : false));
   if (!user) return <Navigate to="/login" replace />;
-  if (!isSeller) return <Navigate to="/become-seller" replace />;
+  if (!isSeller) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -107,23 +105,6 @@ const AppContent: React.FC = () => {
           } 
         />
 
-        {/* Secured connected banking portal routes */}
-        <Route 
-          path="/banks" 
-          element={
-            <ProtectedRoute>
-              <BankSelection />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/dashboard/:bankId" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
         <Route 
           path="/profile" 
           element={
@@ -135,7 +116,6 @@ const AppContent: React.FC = () => {
 
         {/* Seller Portal Routes */}
         <Route path="/seller/login" element={<Navigate to="/" replace />} />
-        <Route path="/become-seller" element={<ProtectedRoute><BecomeSeller /></ProtectedRoute>} />
         <Route
           path="/seller"
           element={

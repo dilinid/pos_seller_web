@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { X, Search, Check, ArrowLeft, Building2, Wallet, Shield } from 'lucide-react';
+import { X, Search, ArrowLeft, Building2, Wallet, Shield } from 'lucide-react';
 import { MOCK_CREDIT_UNIONS } from '../../data/mock-payment-accounts';
 import { usePaymentAccountStore } from '../../stores/payment-account.store';
 import { useAuthStore } from '../../stores/auth.store';

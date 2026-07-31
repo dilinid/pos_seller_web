@@ -96,16 +96,26 @@ def login(
     body: LoginRequest,
     session: Session = Depends(get_session),
 ):
-    if not body.username or not body.password:
+    username = body.username.strip()
+    password = body.password
+
+    if not username or not password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username and password are required",
         )
 
-    stmt = select(ITUserMaster).where(ITUserMaster.user_name == body.username)
+    # Bounds match the `it_user_master.user_name`/`password` column widths.
+    if len(username) > 50 or len(password) > 500:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or password exceeds maximum allowed length",
+        )
+
+    stmt = select(ITUserMaster).where(ITUserMaster.user_name == username)
     user = session.exec(stmt).first()
 
-    if not user or not _verify_password(body.password, user.password or ""):
+    if not user or not _verify_password(password, user.password or ""):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
