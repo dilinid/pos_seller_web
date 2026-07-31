@@ -218,7 +218,7 @@ def signup(
         session.add(customer)
         session.flush()  # populate customer.cus_id before generating cus_code
 
-        customer.cus_code = f"CUS-{customer.cus_id:06d}"
+        customer.cus_code = f"CUS{customer.cus_id:06d}"
 
         user = ITUserMaster(
             customer_id=customer.cus_id,
