@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ShoppingCart, Printer } from 'lucide-react';
+import { ShoppingCart, Printer, Pencil, Eye } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 
 interface PickupOrder {
@@ -8,7 +8,8 @@ interface PickupOrder {
   orderDate: string;
   customer: string;
   totalItems: number;
-  status: 'Pending' | 'Picked';
+  status: 'Pending' | 'Confirmed';
+  remarks: string;
 }
 
 interface PickupItem {
@@ -19,11 +20,11 @@ interface PickupItem {
 }
 
 const INITIAL_ORDERS: PickupOrder[] = [
-  { pickNo: 'PK-0001', orderNo: 'ORD-2025-000124', orderDate: '26/07/2025 10:15 AM', customer: 'Nimal Perera', totalItems: 3, status: 'Pending' },
-  { pickNo: 'PK-0002', orderNo: 'ORD-2025-000125', orderDate: '26/07/2025 10:20 AM', customer: 'Kavindu Silva', totalItems: 2, status: 'Pending' },
-  { pickNo: 'PK-0003', orderNo: 'ORD-2025-000126', orderDate: '26/07/2025 11:00 AM', customer: 'Tharushi Abey.', totalItems: 4, status: 'Pending' },
-  { pickNo: 'PK-0004', orderNo: 'ORD-2025-000127', orderDate: '26/07/2025 11:30 AM', customer: 'Danushka Bandara', totalItems: 1, status: 'Pending' },
-  { pickNo: 'PK-0005', orderNo: 'ORD-2025-000128', orderDate: '26/07/2025 12:10 PM', customer: 'Sanduni Fernando', totalItems: 2, status: 'Pending' },
+  { pickNo: 'PK-0001', orderNo: 'ORD-2025-000124', orderDate: '26/07/2025 10:15 AM', customer: 'Nimal Perera', totalItems: 3, status: 'Pending', remarks: '' },
+  { pickNo: 'PK-0002', orderNo: 'ORD-2025-000125', orderDate: '26/07/2025 10:20 AM', customer: 'Kavindu Silva', totalItems: 2, status: 'Pending', remarks: '' },
+  { pickNo: 'PK-0003', orderNo: 'ORD-2025-000126', orderDate: '26/07/2025 11:00 AM', customer: 'Tharushi Abey.', totalItems: 4, status: 'Pending', remarks: '' },
+  { pickNo: 'PK-0004', orderNo: 'ORD-2025-000127', orderDate: '26/07/2025 11:30 AM', customer: 'Danushka Bandara', totalItems: 1, status: 'Pending', remarks: '' },
+  { pickNo: 'PK-0005', orderNo: 'ORD-2025-000128', orderDate: '26/07/2025 12:10 PM', customer: 'Sanduni Fernando', totalItems: 2, status: 'Pending', remarks: '' },
 ];
 
 const ITEMS_BY_PICK: Record<string, PickupItem[]> = {
@@ -53,7 +54,7 @@ const ITEMS_BY_PICK: Record<string, PickupItem[]> = {
 
 const STATUS_STYLES: Record<PickupOrder['status'], { bg: string; color: string }> = {
   Pending: { bg: '#fef3c7', color: '#d97706' },
-  Picked: { bg: '#dcfce7', color: '#16a34a' },
+  Confirmed: { bg: '#dcfce7', color: '#16a34a' },
 };
 
 const thStyle: React.CSSProperties = {
@@ -76,19 +77,91 @@ const tdStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+function printPickupRecord(order: PickupOrder, items: PickupItem[]) {
+  const rowsHtml = items
+    .map(
+      (item, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.code}</td>
+          <td>${item.name}</td>
+          <td>${item.location}</td>
+          <td>${item.qtyOrdered}</td>
+        </tr>
+      `,
+    )
+    .join('');
+
+  const html = `
+    <html>
+      <head>
+        <title>${order.pickNo}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+          h2 { margin-bottom: 4px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; font-size: 13px; }
+          th { background: #f3f4f6; text-transform: uppercase; font-size: 11px; }
+        </style>
+      </head>
+      <body>
+        <h2>Pick Up List — ${order.pickNo}</h2>
+        <p>
+          <strong>Order No:</strong> ${order.orderNo}<br/>
+          <strong>Order Date:</strong> ${order.orderDate}<br/>
+          <strong>Customer:</strong> ${order.customer}<br/>
+          <strong>Status:</strong> ${order.status}
+          ${order.remarks ? `<br/><strong>Remarks:</strong> ${order.remarks}` : ''}
+        </p>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Item Code</th><th>Item Name</th><th>Location</th><th>Qty Ordered</th></tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=800,height=900');
+  if (!printWindow) return;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
 const SellerPickupList: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const [orders, setOrders] = useState<PickupOrder[]>(INITIAL_ORDERS);
-  const [selectedPickNo, setSelectedPickNo] = useState(INITIAL_ORDERS[0].pickNo);
+  const [selectedPickNo, setSelectedPickNo] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'edit' | 'view' | null>(null);
   const [qtyToPick, setQtyToPick] = useState<Record<string, number>>({});
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
-  const items = useMemo(() => ITEMS_BY_PICK[selectedPickNo] ?? [], [selectedPickNo]);
+  const items = useMemo(() => (selectedPickNo ? ITEMS_BY_PICK[selectedPickNo] ?? [] : []), [selectedPickNo]);
   const selectedOrder = orders.find((o) => o.pickNo === selectedPickNo);
   const allChecked = items.length > 0 && items.every((i) => checkedItems[i.code]);
+  const isEditing = viewMode === 'edit';
 
-  const handleSelectPick = (pickNo: string) => {
-    setSelectedPickNo(pickNo);
+  const handleEdit = (order: PickupOrder) => {
+    if (order.status === 'Confirmed') return;
+    setSelectedPickNo(order.pickNo);
+    setViewMode('edit');
+    setQtyToPick({});
+    setCheckedItems({});
+  };
+
+  const handleView = (order: PickupOrder) => {
+    setSelectedPickNo(order.pickNo);
+    setViewMode('view');
+    setQtyToPick({});
+    setCheckedItems({});
+  };
+
+  const handleClose = () => {
+    setSelectedPickNo(null);
+    setViewMode(null);
     setQtyToPick({});
     setCheckedItems({});
   };
@@ -112,22 +185,18 @@ const SellerPickupList: React.FC = () => {
   };
 
   const handleConfirmPicked = () => {
+    if (!selectedPickNo) return;
     setOrders((prev) =>
-      prev.map((o) => (o.pickNo === selectedPickNo ? { ...o, status: 'Picked' } : o)),
+      prev.map((o) => (o.pickNo === selectedPickNo ? { ...o, status: 'Confirmed' } : o)),
     );
+    handleClose();
   };
 
-  const handleCancel = () => {
-    setQtyToPick({});
-    setCheckedItems({});
-  };
-
-  const handlePrint = () => {
-    window.print();
+  const handleRemarksChange = (pickNo: string, value: string) => {
+    setOrders((prev) => prev.map((o) => (o.pickNo === pickNo ? { ...o, remarks: value } : o)));
   };
 
   const today = new Date().toLocaleDateString('en-GB');
-  const isConfirmDisabled = !selectedOrder || selectedOrder.status === 'Picked';
 
   return (
     <div>
@@ -159,7 +228,7 @@ const SellerPickupList: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto', marginBottom: '28px' }}>
+        <div style={{ overflowX: 'auto', marginBottom: selectedPickNo ? '28px' : 0 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -169,20 +238,20 @@ const SellerPickupList: React.FC = () => {
                 <th style={thStyle}>Customer</th>
                 <th style={thStyle}>Total Items</th>
                 <th style={thStyle}>Status</th>
+                <th style={thStyle}>Print</th>
+                <th style={thStyle}>Remarks</th>
+                <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {orders.map((order) => {
                 const isSelected = order.pickNo === selectedPickNo;
                 const statusStyle = STATUS_STYLES[order.status];
+                const isConfirmed = order.status === 'Confirmed';
                 return (
                   <tr
                     key={order.pickNo}
-                    onClick={() => handleSelectPick(order.pickNo)}
-                    style={{
-                      cursor: 'pointer',
-                      background: isSelected ? 'var(--primary-light)' : 'transparent',
-                    }}
+                    style={{ background: isSelected ? 'var(--primary-light)' : 'transparent' }}
                   >
                     <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{order.pickNo}</td>
                     <td style={tdStyle}>{order.orderNo}</td>
@@ -198,6 +267,58 @@ const SellerPickupList: React.FC = () => {
                         {order.status}
                       </span>
                     </td>
+                    <td style={tdStyle}>
+                      <button
+                        type="button"
+                        onClick={() => printPickupRecord(order, ITEMS_BY_PICK[order.pickNo] ?? [])}
+                        title="Print this pick up record"
+                        style={{
+                          background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px',
+                          padding: '5px 7px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex',
+                        }}
+                      >
+                        <Printer size={14} />
+                      </button>
+                    </td>
+                    <td style={{ ...tdStyle, whiteSpace: 'normal' }}>
+                      <input
+                        type="text"
+                        value={order.remarks}
+                        onChange={(e) => handleRemarksChange(order.pickNo, e.target.value)}
+                        placeholder="Add remarks"
+                        className="form-input"
+                        style={{ minWidth: '140px', padding: '5px 8px', fontSize: '0.8rem' }}
+                      />
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(order)}
+                          disabled={isConfirmed}
+                          title={isConfirmed ? 'Confirmed pick ups cannot be edited' : 'Edit this pick up'}
+                          style={{
+                            background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px',
+                            padding: '5px 7px', cursor: isConfirmed ? 'not-allowed' : 'pointer',
+                            color: isConfirmed ? 'var(--text-muted)' : 'var(--primary)',
+                            opacity: isConfirmed ? 0.5 : 1, display: 'inline-flex',
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleView(order)}
+                          title="View this pick up"
+                          style={{
+                            background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px',
+                            padding: '5px 7px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex',
+                          }}
+                        >
+                          <Eye size={14} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -205,89 +326,103 @@ const SellerPickupList: React.FC = () => {
           </table>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, width: '36px' }}>
-                  <input type="checkbox" checked={allChecked} onChange={toggleAll} style={{ accentColor: 'var(--primary)' }} />
-                </th>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Item Code</th>
-                <th style={thStyle}>Item Name</th>
-                <th style={thStyle}>Location</th>
-                <th style={thStyle}>Qty Ordered</th>
-                <th style={thStyle}>Qty to Pick</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={item.code}>
-                  <td style={tdStyle}>
-                    <input
-                      type="checkbox"
-                      checked={!!checkedItems[item.code]}
-                      onChange={() => toggleItem(item.code)}
-                      style={{ accentColor: 'var(--primary)' }}
-                    />
-                  </td>
-                  <td style={tdStyle}>{index + 1}</td>
-                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{item.code}</td>
-                  <td style={tdStyle}>{item.name}</td>
-                  <td style={tdStyle}>{item.location}</td>
-                  <td style={tdStyle}>{item.qtyOrdered}</td>
-                  <td style={tdStyle}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={item.qtyOrdered}
-                      value={qtyToPick[item.code] ?? item.qtyOrdered}
-                      onChange={(e) => handleQtyChange(item.code, Number(e.target.value), item.qtyOrdered)}
-                      className="form-input"
-                      style={{ width: '70px', padding: '6px 8px', fontSize: '0.85rem' }}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No items for this pick.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {selectedPickNo && selectedOrder && (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {isEditing && (
+                      <th style={{ ...thStyle, width: '36px' }}>
+                        <input type="checkbox" checked={allChecked} onChange={toggleAll} style={{ accentColor: 'var(--primary)' }} />
+                      </th>
+                    )}
+                    <th style={thStyle}>#</th>
+                    <th style={thStyle}>Item Code</th>
+                    <th style={thStyle}>Item Name</th>
+                    <th style={thStyle}>Location</th>
+                    <th style={thStyle}>Qty Ordered</th>
+                    <th style={thStyle}>Qty to Pick</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr key={item.code}>
+                      {isEditing && (
+                        <td style={tdStyle}>
+                          <input
+                            type="checkbox"
+                            checked={!!checkedItems[item.code]}
+                            onChange={() => toggleItem(item.code)}
+                            style={{ accentColor: 'var(--primary)' }}
+                          />
+                        </td>
+                      )}
+                      <td style={tdStyle}>{index + 1}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{item.code}</td>
+                      <td style={tdStyle}>{item.name}</td>
+                      <td style={tdStyle}>{item.location}</td>
+                      <td style={tdStyle}>{item.qtyOrdered}</td>
+                      <td style={tdStyle}>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min={0}
+                            max={item.qtyOrdered}
+                            value={qtyToPick[item.code] ?? item.qtyOrdered}
+                            onChange={(e) => handleQtyChange(item.code, Number(e.target.value), item.qtyOrdered)}
+                            className="form-input"
+                            style={{ width: '70px', padding: '6px 8px', fontSize: '0.85rem' }}
+                          />
+                        ) : (
+                          item.qtyOrdered
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {items.length === 0 && (
+                    <tr>
+                      <td colSpan={isEditing ? 7 : 6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No items for this pick.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="btn"
-            style={{ background: 'var(--primary)', color: '#ffffff' }}
-          >
-            <Printer size={16} />
-            Print Pick Up List
-          </button>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="btn"
-            style={{ background: '#9ca3af', color: '#ffffff' }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirmPicked}
-            disabled={isConfirmDisabled}
-            className="btn btn-primary"
-            style={isConfirmDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-          >
-            {selectedOrder?.status === 'Picked' ? 'Picked ✓' : 'Confirm Picked'}
-          </button>
-        </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+              {isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="btn"
+                    style={{ background: '#9ca3af', color: '#ffffff' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmPicked}
+                    className="btn btn-primary"
+                  >
+                    Confirm Picked
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="btn"
+                  style={{ background: '#9ca3af', color: '#ffffff' }}
+                >
+                  Close
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
