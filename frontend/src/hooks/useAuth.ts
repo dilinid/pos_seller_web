@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useAuthStore } from "../stores/auth.store";
 import { useNavigate } from "react-router-dom";
 import { fetchUserProfile } from "../apis/profile.api";
-import type { UserProfile } from "../types/profile.type";
 import { loginApi } from "../apis/auth.api";
+import { buildFallbackProfile, mapProfileResponse } from "../utils/profile.utils";
 
 // Bounds match the backend `it_user_master.user_name`/`password` column widths.
 const MAX_USERNAME_LENGTH = 50;
@@ -55,23 +55,13 @@ export function useAuth() {
         name: response.name,
       });
 
+      const username = response.user_name || trimmedUserName;
       try {
-        const userProfile = await getUserProfile(response.user_name || trimmedUserName);
-        if (userProfile) {
-          setUser(userProfile);
-        }
+        const profileResponse = await fetchUserProfile(username);
+        setUser(mapProfileResponse(profileResponse));
       } catch {
         // Fallback user profile if profile service endpoint is unavailable
-        setUser({
-          id: String(response.user_name || trimmedUserName),
-          name: response.name || trimmedUserName,
-          email: "",
-          phone: "",
-          gender: "",
-          zipcode: "",
-          profilePicture: "",
-          address: "",
-        });
+        setUser(buildFallbackProfile({ username, name: response.name || trimmedUserName }));
       }
       handleRedirect();
     } catch (err: any) {
@@ -82,27 +72,6 @@ export function useAuth() {
       setLoading(false);
     }
   };
-
-  async function getUserProfile(
-    username: string,
-  ): Promise<UserProfile | undefined> {
-    const response = await fetchUserProfile(username);
-    if (response) {
-      return {
-        id: response.id,
-        name: response.full_name,
-        email: response.email,
-        phone: response.mobile_1,
-        gender: response.gender,
-        zipcode: response.zip_code,
-        profilePicture: response.profile_picture,
-        address: response.address,
-        district: response.district,
-        dsDivision: response.district_ds_division,
-        gnDivision: response.gn_division,
-      };
-    }
-  }
 
   function logout() {
     clearState();

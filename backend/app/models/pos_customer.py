@@ -1,9 +1,8 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 
-if TYPE_CHECKING:
-    from app.models.pos_customer_group import PosCustomerGroup
+from app.models.pos_customer_group import PosCustomerGroup
 
 
 class PosCustomer(SQLModel, table=True):
