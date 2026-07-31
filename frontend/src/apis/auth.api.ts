@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { LoginResponse } from "../types/auth.type";
+import type { LoginResponse, SignupRequest } from "../types/auth.type";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const authApi = axios.create();
@@ -12,6 +12,14 @@ export const loginApi = async (
     username,
     password,
   });
+
+  return response.data;
+};
+
+export const signupApi = async (
+  payload: SignupRequest,
+): Promise<LoginResponse> => {
+  const response = await authApi.post(`${BASE_URL}/auth/signup`, payload);
 
   return response.data;
 };

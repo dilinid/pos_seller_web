@@ -1,11 +1,13 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Phone, Lock, Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
   const { handleSubmit, loading, error, userName, setUserName, password, setPassword, showPassword, setShowPassword } = useAuth();
-  
+
 
   return (
     <div style={{
@@ -196,6 +198,16 @@ const Login: React.FC = () => {
             )}
           </button>
         </form>
+
+        <p style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          Don't have an account?{' '}
+          <span
+            onClick={() => navigate('/register')}
+            style={{ color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Sign Up
+          </span>
+        </p>
 
       </div>
     </div>
