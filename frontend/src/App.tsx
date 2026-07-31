@@ -14,6 +14,8 @@ import SellerSettings from './pages/SellerSettings';
 import SellerProducts from './pages/SellerProducts';
 import SellerStock from './pages/SellerStock';
 import SellerOrders from './pages/SellerOrders';
+import SellerPickupList from './pages/SellerPickupList';
+import SellerPackingList from './pages/SellerPackingList';
 import SellerPromotions from './pages/SellerPromotions';
 import SellerPayments from './pages/SellerPayments';
 import SellerAddProduct from './pages/SellerAddProduct';
@@ -132,6 +134,8 @@ const AppContent: React.FC = () => {
           <Route path="products/add" element={<SellerAddProduct />} />
           <Route path="products/edit/:draftId" element={<SellerAddProduct />} />
           <Route path="orders" element={<SellerOrders />} />
+          <Route path="pickup-list" element={<SellerPickupList />} />
+          <Route path="packing-list" element={<SellerPackingList />} />
           <Route path="promotions" element={<SellerPromotions />} />
           <Route path="payments" element={<SellerPayments />} />
           <Route path="settings" element={<SellerSettings />} />

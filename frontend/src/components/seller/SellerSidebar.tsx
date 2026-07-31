@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, Upload, ClipboardList, Settings, Store, BarChart3, Wallet, Megaphone,
+  LayoutDashboard, Package, Upload, ClipboardList, Settings, Store, BarChart3, Wallet, Megaphone, ShoppingCart, PackageCheck,
 } from 'lucide-react';
 import { useSellerStore } from '../../stores/seller.store';
 import { useAuthStore } from '../../stores/auth.store';
@@ -12,6 +12,8 @@ const NAV_ITEMS = [
   { icon: BarChart3, label: 'Stock', path: '/seller/stock' },
   { icon: Megaphone, label: 'Promotions', path: '/seller/promotions' },
   { icon: ClipboardList, label: 'Orders', path: '/seller/orders' },
+  { icon: ShoppingCart, label: 'Pick Up List', path: '/seller/pickup-list' },
+  { icon: PackageCheck, label: 'Packing List', path: '/seller/packing-list' },
   { icon: Wallet, label: 'Payments', path: '/seller/payments' },
   { icon: Settings, label: 'Settings', path: '/seller/settings' },
 ];
