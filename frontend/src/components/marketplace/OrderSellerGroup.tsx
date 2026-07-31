@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Truck, MapPin, Star, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Truck, MapPin, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderItem, UserReview, Seller, ReviewPeriod } from '../../types/marketplace.type';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { SellerBadge } from './SellerBadge';

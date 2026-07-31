@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, Upload, ClipboardList, Settings, Store, LogOut, BarChart3, Wallet, Megaphone,
+  LayoutDashboard, Package, Upload, ClipboardList, Settings, Store, BarChart3, Wallet, Megaphone,
 } from 'lucide-react';
 import { useSellerStore } from '../../stores/seller.store';
 import { useAuthStore } from '../../stores/auth.store';

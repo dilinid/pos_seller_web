@@ -1,4 +1,4 @@
-import { Star, Package, Clock } from 'lucide-react';
+import { Package, Clock } from 'lucide-react';
 import type { Seller } from '../../types/marketplace.type';
 import { StarRating } from '../ui/StarRating';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Landmark, Layers, Package, HelpCircle } from 'lucide-react';
+import { Layers, Package, HelpCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 import { SidebarBanner } from './marketplace/SidebarBanner';
 
@@ -8,15 +8,6 @@ const SidebarMenu: React.FC = () => {
   const isAuthenticated  = !!useAuthStore((state) => state.userSession);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleBankAccess = () => {
-    if (isAuthenticated) {
-      navigate('/banks');
-    } else {
-      localStorage.setItem('auth_redirect', '/banks');
-      navigate('/login');
-    }
-  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -40,28 +31,6 @@ const SidebarMenu: React.FC = () => {
           Store Directory
         </span>
       </div> */}
-
-      {/* Connected Banks */}
-      <div 
-        onClick={handleBankAccess}
-        style={{
-          padding: '12px',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          color: isActive('/dashboard') || isActive('/banks') ? 'var(--primary)' : 'var(--text-primary)',
-          fontWeight: isActive('/dashboard') || isActive('/banks') ? 700 : 500,
-          fontSize: '0.88rem',
-          background: isActive('/dashboard') || isActive('/banks') ? 'var(--primary-light)' : 'transparent',
-          transition: 'var(--transition-fast)'
-        }}
-        title="Access secure accounts and cards dashboard"
-      >
-        <Landmark size={18} color={isActive('/dashboard') || isActive('/banks') ? 'var(--primary)' : 'var(--text-secondary)'} />
-        <span>Accounts & Cards</span>
-      </div>
 
       {/* Departments (Shopping Home) */}
       <div 

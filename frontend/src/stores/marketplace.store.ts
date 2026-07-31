@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Product, CartItem, ProductSubCategory, Seller, PaymentMethodType, Order, OrderItem, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
+import type { Product, CartItem, ProductSubCategory, Seller, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
 import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
 import { SELLERS } from '../data/sellers';
@@ -9,15 +9,13 @@ import { fetchMarketplaceProducts } from '../apis/marketplace.api';
 interface MarketplaceStoreState {
   products: Product[];
   sellers: Seller[];
-  categories: typeof MARKETPLACE_CATEGORIES;
+  categories: ProductSubCategory[];
   cart: CartItem[];
-  selectedCategory: string | null;
   selectedSubCategory: string | null;
   searchQuery: string;
   productsLoading: boolean;
   productsError: string | null;
 
-  setCategory: (id: string | null) => void;
   setSubCategory: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   loadProducts: () => Promise<void>;
@@ -82,7 +80,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       sellers: SELLERS,
       categories: MARKETPLACE_CATEGORIES,
       cart: [],
-      selectedCategory: MARKETPLACE_CATEGORIES[0]?.id ?? null,
       selectedSubCategory: null,
       searchQuery: '',
       productsLoading: false,
@@ -91,11 +88,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       orders: [],
       allReviews: [],
       reviewPeriods: [],
-
-      setCategory: (id) => {
-        const prev = get().selectedCategory;
-        if (prev !== id) set({ selectedCategory: id, selectedSubCategory: null });
-      },
 
       setSubCategory: (id) => {
         set({ selectedSubCategory: get().selectedSubCategory === id ? null : id });
@@ -711,7 +703,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         if (autoReviews.length > 0) {
           const newProductReviews = updatedReviews.filter((r) => r.targetType === 'product');
           const newSellerReviews = updatedReviews.filter((r) => r.targetType === 'seller');
-          const newBuyerReviews = updatedReviews.filter((r) => r.targetType === 'buyer');
 
           const seen = new Set<string>();
           newProductReviews.forEach((r) => {
@@ -819,21 +810,18 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
 
 export const getFilteredProducts = (state: MarketplaceStoreState): Product[] => {
   return state.products.filter((product) => {
-    const matchesCategory = !state.selectedCategory || product.categoryId === state.selectedCategory;
     const matchesSubCategory = !state.selectedSubCategory || product.subCategoryId === state.selectedSubCategory;
     const query = state.searchQuery.toLowerCase();
     const matchesSearch =
       !query ||
       product.name.toLowerCase().includes(query) ||
       product.description.toLowerCase().includes(query);
-    return matchesCategory && matchesSubCategory && matchesSearch;
+    return matchesSubCategory && matchesSearch;
   });
 };
 
 export const getCurrentSubCategories = (state: MarketplaceStoreState): ProductSubCategory[] => {
-  if (!state.selectedCategory) return [];
-  const cat = state.categories.find((c) => c.id === state.selectedCategory);
-  return cat?.subCategories ?? [];
+  return state.categories;
 };
 
 export const getSeller = (state: MarketplaceStoreState, sellerId: string): Seller | undefined => {

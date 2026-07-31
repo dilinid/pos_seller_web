@@ -92,7 +92,7 @@ export function useDashboard() {
           refAccountNumber: account.ref_account_number,
           plAccountId: account.plAccountId,
           totalBalance: account.total_balance,
-          intrestRate: account.interestRate,
+          interestRate: account.interestRate,
           openDate: account.openDate,
           renewDate: account.renewDate
         }
@@ -126,7 +126,7 @@ export function useDashboard() {
           refAccountNumber: account.ref_account_number,
           plAccountId: account.plAccountId,
           totalBalance: account.total_balance,
-          intrestRate: account.interestRate,
+          interestRate: account.interestRate,
           openDate: account.openDate,
           renewDate: account.renewDate
         }
@@ -160,7 +160,7 @@ export function useDashboard() {
           refAccountNumber: account.ref_account_number,
           plAccountId: account.plAccountId,
           totalBalance: account.total_balance,
-          intrestRate: account.interestRate,
+          interestRate: account.interestRate,
           openDate: account.openDate,
           renewDate: account.renewDate
         }

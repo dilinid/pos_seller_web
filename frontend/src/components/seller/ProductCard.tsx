@@ -96,7 +96,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const pickupAddress = sellerProfile?.pickupAddress || '';
 
   const canEditInline = draft.status === 'draft' || draft.status === 'changes_requested' || draft.status === 'approved' || draft.status === 'published';
-  const isLocked = draft.status === 'approved';
 
   return (
     <div className="pos-item-card" onClick={() => onViewDetails(draft)} style={{ cursor: 'pointer' }}>

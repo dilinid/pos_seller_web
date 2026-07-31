@@ -23,7 +23,7 @@ export const StockItemRow: React.FC<StockItemRowProps> = ({ draft }) => {
     const val = Math.max(0, Math.round(newQty));
     updateDraft(draft.id, { quantity: val });
     if (draft.publishedProductId) {
-      useMarketplaceStore.getState().updateProduct(draft.publishedProductId, { quantity: val });
+      useMarketplaceStore.getState().updateProduct(draft.publishedProductId || draft.id, { quantity: val });
     }
   };
 

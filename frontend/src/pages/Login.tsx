@@ -62,7 +62,7 @@ const Login: React.FC = () => {
           <p style={{
             color: 'var(--text-secondary)',
             fontSize: '0.85rem'
-          }}>Access fresh carts and connected finance accounts</p>
+          }}>Access fresh carts</p>
         </div>
 
         {error && (
@@ -121,6 +121,7 @@ const Login: React.FC = () => {
                 disabled={loading}
                 style={{ paddingLeft: '44px' }}
                 required
+                maxLength={50}
               />
               <Phone size={16} color="var(--text-muted)" style={{
                 position: 'absolute',
@@ -146,6 +147,7 @@ const Login: React.FC = () => {
                 disabled={loading}
                 style={{ paddingLeft: '44px', paddingRight: '44px' }}
                 required
+                maxLength={500}
               />
               <Lock size={16} color="var(--text-muted)" style={{
                 position: 'absolute',
