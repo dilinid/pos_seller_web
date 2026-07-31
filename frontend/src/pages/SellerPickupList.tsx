@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Printer } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 
 interface PickupOrder {
@@ -120,6 +120,10 @@ const SellerPickupList: React.FC = () => {
   const handleCancel = () => {
     setQtyToPick({});
     setCheckedItems({});
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const today = new Date().toLocaleDateString('en-GB');
@@ -257,6 +261,15 @@ const SellerPickupList: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="btn"
+            style={{ background: 'var(--primary)', color: '#ffffff' }}
+          >
+            <Printer size={16} />
+            Print Pick Up List
+          </button>
           <button
             type="button"
             onClick={handleCancel}
