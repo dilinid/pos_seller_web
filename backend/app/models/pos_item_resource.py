@@ -18,3 +18,4 @@ class PosItemResource(SQLModel, table=True):
     resource_mddate: Optional[datetime] = Field(default=None, nullable=True)
     resource_mdby: Optional[str] = Field(default=None, max_length=10, nullable=True)
     is_approved: Optional[int] = Field(default=0, nullable=False)
+    is_primary: Optional[int] = Field(default=0, nullable=False)
