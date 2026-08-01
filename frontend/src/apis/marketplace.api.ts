@@ -1,5 +1,5 @@
 import { api } from '../shared/axios';
-import type { Product } from '../types/marketplace.type';
+import type { Product, ProductSubCategory } from '../types/marketplace.type';
 
 export interface MarketplaceProductRaw {
   id: string;
@@ -52,4 +52,9 @@ function mapRawToProduct(raw: MarketplaceProductRaw): Product {
 export async function fetchMarketplaceProducts(): Promise<Product[]> {
   const response = await api.get<MarketplaceProductRaw[]>('/api/marketplace/products');
   return response.data.map(mapRawToProduct);
+}
+
+export async function fetchMarketplaceCategories(): Promise<ProductSubCategory[]> {
+  const response = await api.get<ProductSubCategory[]>('/api/marketplace/categories');
+  return response.data;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
@@ -14,6 +14,11 @@ const LandingPage: React.FC = () => {
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const products = useMarketplaceStore((s) => s.products);
   const selectedSubCategory = useMarketplaceStore((s) => s.selectedSubCategory);
+  const loadCategories = useMarketplaceStore((s) => s.loadCategories);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const filteredProducts = useMemo(() =>
     products.filter((product) => {

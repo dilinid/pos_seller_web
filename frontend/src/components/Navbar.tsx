@@ -230,7 +230,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   lineHeight: 1.1,
                 }}
               >
-                MemberCart
+                Jayakirana
               </h1>
               <span
                 style={{

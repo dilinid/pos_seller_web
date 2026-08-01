@@ -1,13 +1,21 @@
 """Marketplace endpoints — fetch approved items from pos_itemlots with approved resources."""
 
+import re
+
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select, text
 
 from app.database import get_session
 from app.models.pos_itemlots import PosItemLots
+from app.models.pos_item_group import PosItemGroup
 from app.models.pos_item_resource import PosItemResource
 
 router = APIRouter()
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
+    return slug or value
 
 
 @router.get("/api/marketplace/products")
@@ -89,3 +97,20 @@ def get_marketplace_products(session: Session = Depends(get_session)):
         )
 
     return products
+
+
+@router.get("/api/marketplace/categories")
+def get_marketplace_categories(session: Session = Depends(get_session)):
+    """Return product categories sourced from pos_item_group."""
+    stmt = select(PosItemGroup).order_by(PosItemGroup.group_name)
+    groups = session.exec(stmt).all()
+
+    return [
+        {
+            "id": group.group_code or str(group.group_id),
+            "name": group.group_name,
+            "slug": _slugify(group.group_code or group.group_name),
+            "icon": "🏷️",
+        }
+        for group in groups
+    ]

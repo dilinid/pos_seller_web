@@ -4,7 +4,7 @@ import type { Product, CartItem, ProductSubCategory, Seller, PaymentMethodType, 
 import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
 import { SELLERS } from '../data/sellers';
-import { fetchMarketplaceProducts } from '../apis/marketplace.api';
+import { fetchMarketplaceProducts, fetchMarketplaceCategories } from '../apis/marketplace.api';
 
 interface MarketplaceStoreState {
   products: Product[];
@@ -15,10 +15,13 @@ interface MarketplaceStoreState {
   searchQuery: string;
   productsLoading: boolean;
   productsError: string | null;
+  categoriesLoading: boolean;
+  categoriesError: string | null;
 
   setSubCategory: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   loadProducts: () => Promise<void>;
+  loadCategories: () => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -84,6 +87,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       searchQuery: '',
       productsLoading: false,
       productsError: null,
+      categoriesLoading: false,
+      categoriesError: null,
       ...CHECKOUT_INIT,
       orders: [],
       allReviews: [],
@@ -103,6 +108,17 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load products';
           set({ productsError: message, productsLoading: false });
+        }
+      },
+
+      loadCategories: async () => {
+        set({ categoriesLoading: true, categoriesError: null });
+        try {
+          const categories = await fetchMarketplaceCategories();
+          set({ categories, categoriesLoading: false });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load categories';
+          set({ categoriesError: message, categoriesLoading: false });
         }
       },
 
