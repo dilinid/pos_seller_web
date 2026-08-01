@@ -66,7 +66,7 @@ export interface AccountBase{
 
 export interface Account extends AccountBase{
   plAccountId: number;
-  intrestRate: number;
+  interestRate: number;
   openDate: string;
   renewDate: string;
 }

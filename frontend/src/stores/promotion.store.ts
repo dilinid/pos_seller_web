@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Promotion, BannerPlacement, PromotionStatus } from '../types/promotion.type';
+import type { Promotion, BannerPlacement } from '../types/promotion.type';
 
 function generateId(): string {
   return `promo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;

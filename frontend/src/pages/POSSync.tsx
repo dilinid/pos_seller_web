@@ -74,7 +74,7 @@ const POSSync: React.FC = () => {
       return;
     }
 
-    const newProduct: Product = {
+    const  newProduct: Product = {
       id: `product_${published.id}`,
       name: published.name,
       price: published.price,
@@ -90,6 +90,10 @@ const POSSync: React.FC = () => {
       reviewCount: 0,
       features: published.features,
       specifications: published.specifications,
+      weight: null,
+      volume: null,
+      quantity: 0,
+      reorderLevel: null,
     };
 
     addProduct(newProduct);

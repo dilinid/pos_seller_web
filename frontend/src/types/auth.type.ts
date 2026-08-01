@@ -12,3 +12,11 @@ export interface UserSession {
     userRole?: string;
     name?: string;
 }
+
+export interface SignupRequest {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    address?: string;
+}

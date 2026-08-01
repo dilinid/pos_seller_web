@@ -18,7 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, cartItem }) =
 
   const subCategory = useMemo<ProductSubCategory | undefined>(() => {
     for (const cat of MARKETPLACE_CATEGORIES) {
-      const found = cat.subCategories.find((s) => s.id === product.subCategoryId);
+      const found = cat?.subCategories?.find((s: any) => s.id === product.subCategoryId);
       if (found) return found;
     }
     return undefined;

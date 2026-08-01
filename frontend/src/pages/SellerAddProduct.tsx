@@ -10,7 +10,6 @@ import { FeatureEditor } from '../components/seller/FeatureEditor';
 import { SpecEditor } from '../components/seller/SpecEditor';
 import { ProductStatusBadge } from '../components/seller/ProductStatusBadge';
 import { SuccessOverlay } from '../components/seller/SuccessOverlay';
-import type { ProductDraftStatus } from '../types/product-draft.type';
 import type { SellerProfile } from '../types/seller.type';
 
 function hasDeliveryConfig(profile: SellerProfile): boolean {
@@ -66,7 +65,7 @@ const SellerAddProduct: React.FC = () => {
 
   const categories = MARKETPLACE_CATEGORIES;
   const currentCategory = categories.find((c) => c.id === categoryId);
-  const subCategories = currentCategory?.subCategories ?? [];
+  const subCategories = (currentCategory as any)?.subCategories ?? [];
 
   useEffect(() => {
     if (existingDraft) {
@@ -127,25 +126,6 @@ const SellerAddProduct: React.FC = () => {
     }
   });
 
-  const resetForm = () => {
-    setName('');
-    setUnit('');
-    setCategoryId('');
-    setSubCategoryId('');
-    setDescription('');
-    setImage('');
-    setImages([]);
-    setPrice('');
-    setMrp('');
-    setQuantity('');
-    setReorderLevel('');
-    setWeight('');
-    setVolume('');
-    setFeatures([]);
-    setSpecifications({});
-    setDeliveryAvailable(true);
-    setPickupAvailable(true);
-  };
 
   const collectData = () => ({
     name,
@@ -346,7 +326,7 @@ const SellerAddProduct: React.FC = () => {
               <label className="form-label">Subcategory *</label>
               <select className="form-input" value={subCategoryId} onChange={(e) => setSubCategoryId(e.target.value)} disabled={!canEditAll || !categoryId}>
                 <option value="">Select subcategory</option>
-                {subCategories.map((sc) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
+                {subCategories.map((sc: any) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
               </select>
             </div>
           </div>

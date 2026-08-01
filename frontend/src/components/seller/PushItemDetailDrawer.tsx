@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, Package, Truck, MapPin, Clock, Check, X as XIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { PushItem } from '../../types/push-item.type';
 
 interface PushItemDetailDrawerProps {

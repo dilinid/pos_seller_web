@@ -26,11 +26,12 @@ export interface LoanAccount {
   capital: number;
   installment: number;
   fee: number;
-  pastDue: number;
-  pastDueDays: number;
-  totalArrears: number;
-  interest: number;
-  status: number;
+  pastDue?: number;
+  pastDueDays?: number;
+  totalArrears?: number;
+  interest?: number;
+  status?: number;
+  nextDueDate?: string;
 }
 
 export interface FixedDeposit {
@@ -45,7 +46,11 @@ export interface FixedDeposit {
 export interface SharePortfolio {
   shareNo: string;
   name: string;
+  units: number;
+  averageCost: number;
+  currentPrice: number;
   balance: number;
+  changePercent: number;
 }
 
 interface BankData {
@@ -125,13 +130,13 @@ const MOCK_PORTFOLIOS: Record<string, BankData> = {
       { accNo: 'SA-559381-AIB', type: 'Active Checking', balance: 8490.20, currency: 'USD', interestRate: 0.15 }
     ],
     loans: [
-      { loanNo: 'LN-772901-AIB', name: 'Residential Mortgage', balance: 250000, capital: 184500, installment: 1450, fee: 4.5, nextDueDate: 'June 01, 2026' }
+      { loanNo: 'LN-772901-AIB', name: 'Residential Mortgage', balance: 250000, capital: 184500, installment: 1450, fee: 4.5, pastDue: 0, pastDueDays: 0, totalArrears: 0, interest: 0, status: 0 }
     ],
     fds: [
-      { fdNo: 'FD-992018-AIB', name: 15000, balance: 16800, interestRate: 6.0, openDate: 'December 18, 2027', renewDate: 24 }
+      { fdNo: 'FD-992018-AIB', name: 'Fixed Deposit 1', balance: 16800, interestRate: 6.0, openDate: 'December 18, 2027', renewDate: 'December 18, 2028' }
     ],
     shares: [
-      { shareNo: 'AIBG', name: 'AIB Bank Group Inc', shares: 500, averageCost: 12.50, currentPrice: 15.80, balance: 7900, changePercent: 26.4 }
+      { shareNo: 'AIBG', name: 'AIB Bank Group Inc', units: 500, averageCost: 12.50, currentPrice: 15.80, balance: 7900, changePercent: 26.4 }
     ]
   },
   apex: {
@@ -140,11 +145,11 @@ const MOCK_PORTFOLIOS: Record<string, BankData> = {
     ],
     loans: [],
     fds: [
-      { fdNo: 'FD-409182-APX', name: 50000, balance: 56250, interestRate: 6.25, openDate: 'October 10, 2026', renewDate: 24 },
-      { fdNo: 'FD-302912-APX', name: 20000, balance: 21100, interestRate: 5.50, openDate: 'November 05, 2026', renewDate: 12 }
+      { fdNo: 'FD-409182-APX', name: 'Fixed Deposit APX-1', balance: 56250, interestRate: 6.25, openDate: 'October 10, 2026', renewDate: 'October 10, 2027' },
+      { fdNo: 'FD-302912-APX', name: 'Fixed Deposit APX-2', balance: 21100, interestRate: 5.50, openDate: 'November 05, 2026', renewDate: 'November 05, 2027' }
     ],
     shares: [
-      { shareNo: 'APXW', name: 'Apex Wealth Growth Fund', shares: 1200, averageCost: 45.20, currentPrice: 48.90, balance: 58680, changePercent: 8.18 }
+      { shareNo: 'APXW', name: 'Apex Wealth Growth Fund', units: 1200, averageCost: 45.20, currentPrice: 48.90, balance: 58680, changePercent: 8.18 }
     ]
   },
   horizon: {
@@ -152,11 +157,11 @@ const MOCK_PORTFOLIOS: Record<string, BankData> = {
       { accNo: 'SA-442890-HTB', type: 'Standard Savings', balance: 18450.00, currency: 'USD', interestRate: 2.10 }
     ],
     loans: [
-      { loanNo: 'LN-291829-HTB', name: 'Agricultural Support Loan', balance: 40000, capital: 12800, installment: 550, fee: 3.75, nextDueDate: 'June 10, 2026' }
+      { loanNo: 'LN-291829-HTB', name: 'Agricultural Support Loan', balance: 40000, capital: 12800, installment: 550, fee: 3.75 }
     ],
     fds: [],
     shares: [
-      { shareNo: 'HTBC', name: 'Horizon Trust BioCorp', shares: 350, averageCost: 22.00, currentPrice: 19.50, balance: 6825, changePercent: -11.3 }
+      { shareNo: 'HTBC', name: 'Horizon Trust BioCorp', units: 350, averageCost: 22.00, currentPrice: 19.50, balance: 6825, changePercent: -11.3 }
     ]
   },
   union: {
@@ -165,13 +170,13 @@ const MOCK_PORTFOLIOS: Record<string, BankData> = {
       { accNo: 'SA-119283-UCB', type: 'Coop Member Savings', balance: 6450.75, currency: 'USD', interestRate: 3.50 }
     ],
     loans: [
-      { loanNo: 'LN-552019-UCB', name: 'Personal Vehicle Loan', balance: 25000, capital: 9400, installment: 410, fee: 4.9, nextDueDate: 'June 05, 2026' }
+      { loanNo: 'LN-552019-UCB', name: 'Personal Vehicle Loan', balance: 25000, capital: 9400, installment: 410, fee: 4.9 }
     ],
     fds: [
-      { fdNo: 'FD-771092-UCB', name: 10000, balance: 11150, interestRate: 5.75, openDate: 'August 12, 2026', renewDate: 24 }
+      { fdNo: 'FD-771092-UCB', name: 'Fixed Deposit UCU-1', balance: 11150, interestRate: 5.75, openDate: 'August 12, 2026', renewDate: 'August 12, 2027' }
     ],
     shares: [
-      { shareNo: 'UCBS', name: 'Union Coop Shares', shares: 2000, averageCost: 5.00, currentPrice: 5.75, balance: 11500, changePercent: 15.0 }
+      { shareNo: 'UCBS', name: 'Union Coop Shares', units: 2000, averageCost: 5.00, currentPrice: 5.75, balance: 11500, changePercent: 15.0 }
     ]
   }
 };

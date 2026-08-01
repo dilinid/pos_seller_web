@@ -5,7 +5,6 @@ import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { SellerPaymentCard } from '../components/seller/SellerPaymentCard';
-import { PAYOUT_STATUS_META } from '../data/order-status';
 
 const PAYOUT_TABS: Array<{ key: SellerPayoutStatus | 'all'; label: string }> = [
   { key: 'all', label: 'All' },

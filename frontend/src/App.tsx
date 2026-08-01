@@ -8,15 +8,15 @@ import PaymentPage from './pages/PaymentPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
-import BankSelection from './pages/BankSelection';
-import Dashboard from './pages/Dashboard';
+import Register from './pages/Register';
 import Profile from './pages/Profile';
-import BecomeSeller from './pages/BecomeSeller';
 import SellerDashboard from './pages/SellerDashboard';
 import SellerSettings from './pages/SellerSettings';
 import SellerProducts from './pages/SellerProducts';
 import SellerStock from './pages/SellerStock';
 import SellerOrders from './pages/SellerOrders';
+import SellerPickupList from './pages/SellerPickupList';
+import SellerPackingList from './pages/SellerPackingList';
 import SellerPromotions from './pages/SellerPromotions';
 import SellerPayments from './pages/SellerPayments';
 import SellerAddProduct from './pages/SellerAddProduct';
@@ -42,9 +42,10 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Seller-only route guard — user must be authenticated AND an approved seller
 const SellerOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const user = useAuthStore((s) => s.user);
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id) : false));
+  const userRole = useAuthStore((s) => s.userSession?.userRole);
+  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userRole) : false));
   if (!user) return <Navigate to="/login" replace />;
-  if (!isSeller) return <Navigate to="/become-seller" replace />;
+  if (!isSeller) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -98,32 +99,24 @@ const AppContent: React.FC = () => {
         />
 
         {/* Public-only Authenticated Routes */}
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             <PublicRoute>
               <Login />
             </PublicRoute>
-          } 
+          }
         />
 
-        {/* Secured connected banking portal routes */}
-        <Route 
-          path="/banks" 
+        <Route
+          path="/register"
           element={
-            <ProtectedRoute>
-              <BankSelection />
-            </ProtectedRoute>
-          } 
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          }
         />
-        <Route 
-          path="/dashboard/:bankId" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
+
         <Route 
           path="/profile" 
           element={
@@ -135,7 +128,6 @@ const AppContent: React.FC = () => {
 
         {/* Seller Portal Routes */}
         <Route path="/seller/login" element={<Navigate to="/" replace />} />
-        <Route path="/become-seller" element={<ProtectedRoute><BecomeSeller /></ProtectedRoute>} />
         <Route
           path="/seller"
           element={
@@ -152,6 +144,8 @@ const AppContent: React.FC = () => {
           <Route path="products/add" element={<SellerAddProduct />} />
           <Route path="products/edit/:draftId" element={<SellerAddProduct />} />
           <Route path="orders" element={<SellerOrders />} />
+          <Route path="pickup-list" element={<SellerPickupList />} />
+          <Route path="packing-list" element={<SellerPackingList />} />
           <Route path="promotions" element={<SellerPromotions />} />
           <Route path="payments" element={<SellerPayments />} />
           <Route path="settings" element={<SellerSettings />} />

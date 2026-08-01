@@ -107,6 +107,8 @@ export const useProductDraftStore = create<ProductDraftStoreState>()(
           specifications: published.specifications,
           weight: published.weight,
           volume: published.volume,
+          quantity: 100,
+          reorderLevel: null,
         };
 
         const marketplace = useMarketplaceStore.getState();

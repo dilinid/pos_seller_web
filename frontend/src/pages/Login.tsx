@@ -1,11 +1,13 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Phone, Lock, Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
   const { handleSubmit, loading, error, userName, setUserName, password, setPassword, showPassword, setShowPassword } = useAuth();
-  
+
 
   return (
     <div style={{
@@ -62,7 +64,7 @@ const Login: React.FC = () => {
           <p style={{
             color: 'var(--text-secondary)',
             fontSize: '0.85rem'
-          }}>Access fresh carts and connected finance accounts</p>
+          }}>Access fresh carts</p>
         </div>
 
         {error && (
@@ -121,6 +123,7 @@ const Login: React.FC = () => {
                 disabled={loading}
                 style={{ paddingLeft: '44px' }}
                 required
+                maxLength={50}
               />
               <Phone size={16} color="var(--text-muted)" style={{
                 position: 'absolute',
@@ -146,6 +149,7 @@ const Login: React.FC = () => {
                 disabled={loading}
                 style={{ paddingLeft: '44px', paddingRight: '44px' }}
                 required
+                maxLength={500}
               />
               <Lock size={16} color="var(--text-muted)" style={{
                 position: 'absolute',
@@ -194,6 +198,16 @@ const Login: React.FC = () => {
             )}
           </button>
         </form>
+
+        <p style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          Don't have an account?{' '}
+          <span
+            onClick={() => navigate('/register')}
+            style={{ color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Sign Up
+          </span>
+        </p>
 
       </div>
     </div>
