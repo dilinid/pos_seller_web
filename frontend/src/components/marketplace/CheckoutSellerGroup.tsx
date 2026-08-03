@@ -2,6 +2,7 @@ import { Truck, MapPin, Package } from 'lucide-react';
 import type { CartItem, Seller, SellerDeliveryConfig } from '../../types/marketplace.type';
 import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
+import { ProductImage } from '../ui/ProductImage';
 import { calculateDeliveryFee } from '../../utils/delivery.utils';
 
 interface CheckoutSellerGroupProps {
@@ -73,7 +74,7 @@ export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
               borderBottom: '1px solid var(--border-color)',
             }}
           >
-            <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>{item.product.image}</span>
+            <ProductImage image={item.product.image} alt={item.product.name} size="1.3rem" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)',

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, CreditCard, Banknote, Receipt, Star } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { OrderStatusBadge } from '../components/marketplace/OrderStatusBadge';
+import { ProductImage } from '../components/ui/ProductImage';
 import type { OrderStatus } from '../types/marketplace.type';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
@@ -198,11 +199,11 @@ const OrdersPage: React.FC = () => {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div className="ords-thumb" style={{
-                            borderRadius: '10px',
+                            borderRadius: '10px', overflow: 'hidden',
                             background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center',
                             justifyContent: 'center', flexShrink: 0,
                           }}>
-                            {order.items[0]?.productImage || '📦'}
+                            <ProductImage image={order.items[0]?.productImage} alt={order.items[0]?.productName ?? 'Order item'} fill />
                           </div>
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>

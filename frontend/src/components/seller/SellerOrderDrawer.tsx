@@ -3,6 +3,7 @@ import { X, MapPin, Phone, Mail, ClipboardList, Star, Store, Truck } from 'lucid
 import type { Order, OrderStatus, UserReview, ReviewPeriod } from '../../types/marketplace.type';
 import { OrderStatusBadge } from '../marketplace/OrderStatusBadge';
 import { StarRating } from '../ui/StarRating';
+import { ProductImage } from '../ui/ProductImage';
 import { SellerOrderTimeline } from './SellerOrderTimeline';
 import { SellerOrderStatusActions } from './SellerOrderStatusActions';
 import { SellerRatingForm } from '../marketplace/SellerRatingForm';
@@ -166,9 +167,7 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
                   padding: '10px 0', borderTop: idx > 0 ? '1px solid var(--border-color)' : 'none',
                 }}
               >
-                <span style={{ fontSize: '1.6rem', width: '36px', textAlign: 'center' }}>
-                  {item.productImage}
-                </span>
+                <ProductImage image={item.productImage} alt={item.productName} size="1.6rem" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{item.productName}</div>
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
