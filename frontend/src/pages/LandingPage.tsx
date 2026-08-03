@@ -13,11 +13,16 @@ const LandingPage: React.FC = () => {
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const products = useMarketplaceStore((s) => s.products);
+  const productsLoading = useMarketplaceStore((s) => s.productsLoading);
+  const productsError = useMarketplaceStore((s) => s.productsError);
   const selectedSubCategory = useMarketplaceStore((s) => s.selectedSubCategory);
 
   const filteredProducts = useMemo(() =>
     products.filter((product) => {
-      const matchesSubCategory = !selectedSubCategory || product.subCategoryId === selectedSubCategory;
+      const matchesSubCategory =
+        !selectedSubCategory ||
+        product.categoryId === selectedSubCategory ||
+        product.subCategoryId === selectedSubCategory;
       const q = searchQuery.toLowerCase();
       const matchesSearch = !q || product.name.toLowerCase().includes(q) || product.description.toLowerCase().includes(q);
       return matchesSubCategory && matchesSearch;
@@ -73,7 +78,20 @@ const LandingPage: React.FC = () => {
             <CategoryBar />
 
             <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <ProductGrid products={filteredProducts} cart={cart} />
+              {productsError && !productsLoading && (
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  Couldn&apos;t load the latest products ({productsError}). Showing sample data instead.
+                </div>
+              )}
+              <ProductGrid products={filteredProducts} cart={cart} loading={productsLoading} />
             </section>
           </div>
         </main>

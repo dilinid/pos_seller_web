@@ -26,6 +26,7 @@ import { SellerLayout } from './components/seller/SellerLayout';
 import { useAuthStore } from './stores/auth.store';
 import { useSellerStore } from './stores/seller.store';
 import { AuthInitializer } from './components/AuthInitializer';
+import { MarketplaceInitializer } from './components/MarketplaceInitializer';
 
 // Secure Route guard for authenticated session pages
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -162,6 +163,7 @@ const App: React.FC = () => {
   return (
       <BankProvider>
         <AuthInitializer />
+        <MarketplaceInitializer />
         <AppContent />
       </BankProvider>
   );

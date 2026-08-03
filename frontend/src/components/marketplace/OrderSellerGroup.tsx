@@ -5,6 +5,7 @@ import { OrderStatusBadge } from './OrderStatusBadge';
 import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { StarRating } from '../ui/StarRating';
+import { ProductImage } from '../ui/ProductImage';
 import { SellerOrderStatus } from './SellerOrderStatus';
 import { DeliveryTracker } from './DeliveryTracker';
 import { ReviewForm } from './ReviewForm';
@@ -104,7 +105,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
                   padding: '12px 0',
                   borderBottom: idx < items.length - 1 ? '1px solid var(--border-color)' : 'none',
                 }}>
-                  <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{item.productImage}</span>
+                  <ProductImage image={item.productImage} alt={item.productName} size="1.2rem" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
                       fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)',

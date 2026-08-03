@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Package, Wallet, Calendar } from 'lucide-react';
 import type { Order, SellerPayoutStatus } from '../../types/marketplace.type';
 import { SellerPayoutBadge } from './SellerPayoutBadge';
+import { ProductImage } from '../ui/ProductImage';
 
 interface SellerPaymentCardProps {
   order: Order;
@@ -82,7 +83,7 @@ export const SellerPaymentCard: React.FC<SellerPaymentCardProps> = ({ order, sel
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {itemImages.map((img, i) => (
-              <span key={i} style={{ fontSize: '1.4rem' }}>{img}</span>
+              <ProductImage key={i} image={img} alt="Order item" size="1.4rem" />
             ))}
           </div>
           <div style={{ minWidth: 0 }}>

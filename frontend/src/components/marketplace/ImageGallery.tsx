@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ProductImage } from '../ui/ProductImage';
 
 interface ImageGalleryProps {
   images: string[];
@@ -30,16 +31,12 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ images, productName 
           overflow: 'hidden',
         }}
       >
-        <span
-          style={{
-            fontSize: '6rem',
-            userSelect: 'none',
-            lineHeight: 1,
-            transition: 'transform 0.2s ease',
-          }}
-        >
-          {images[selectedIndex]}
-        </span>
+        <ProductImage
+          image={images[selectedIndex]}
+          alt={`${productName} image ${selectedIndex + 1}`}
+          fill
+          style={{ fontSize: '6rem', userSelect: 'none', transition: 'transform 0.2s ease' }}
+        />
 
         {images.length > 1 && (
           <>
@@ -116,14 +113,14 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ images, productName 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.5rem',
+                overflow: 'hidden',
                 flexShrink: 0,
                 transition: 'var(--transition-fast)',
                 opacity: idx === selectedIndex ? 1 : 0.6,
               }}
               aria-label={`View image ${idx + 1} of ${productName}`}
             >
-              {img}
+              <ProductImage image={img} alt={`${productName} thumbnail ${idx + 1}`} fill style={{ fontSize: '1.5rem' }} />
             </button>
           ))}
         </div>

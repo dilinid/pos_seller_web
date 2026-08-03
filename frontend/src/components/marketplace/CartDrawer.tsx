@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { SELLERS } from '../../data/sellers';
 import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
+import { ProductImage } from '../ui/ProductImage';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -191,9 +192,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                           )}
                         </div>
 
-                        <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>
-                          {item.product.image}
-                        </span>
+                        <ProductImage image={item.product.image} alt={item.product.name} size="1.3rem" />
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div

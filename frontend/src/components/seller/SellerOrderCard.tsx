@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Package, ChevronRight, MapPin, Store } from 'lucide-react';
 import type { Order } from '../../types/marketplace.type';
 import { OrderStatusBadge } from '../marketplace/OrderStatusBadge';
+import { ProductImage } from '../ui/ProductImage';
 
 interface SellerOrderCardProps {
   order: Order;
@@ -50,7 +51,7 @@ export const SellerOrderCard: React.FC<SellerOrderCardProps> = ({ order, sellerI
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {itemImages.map((img, i) => (
-              <span key={i} style={{ fontSize: '1.4rem' }}>{img}</span>
+              <ProductImage key={i} image={img} alt="Order item" size="1.4rem" />
             ))}
           </div>
           <div style={{ minWidth: 0 }}>

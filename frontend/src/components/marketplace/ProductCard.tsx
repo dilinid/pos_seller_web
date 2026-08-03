@@ -6,6 +6,7 @@ import { useMarketplaceStore } from '../../stores/marketplace.store';
 import { MARKETPLACE_CATEGORIES } from '../../data/categories';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { StarRating } from '../ui/StarRating';
+import { ProductImage } from '../ui/ProductImage';
 
 interface ProductCardProps {
   product: Product;
@@ -15,14 +16,17 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ product, cartItem }) => {
   const addToCart = useMarketplaceStore((s) => s.addToCart);
   const updateQuantity = useMarketplaceStore((s) => s.updateQuantity);
+  const categories = useMarketplaceStore((s) => s.categories);
 
   const subCategory = useMemo<ProductSubCategory | undefined>(() => {
+    const realCategory = categories.find((c) => c.id === product.categoryId);
+    if (realCategory) return realCategory;
     for (const cat of MARKETPLACE_CATEGORIES) {
       const found = cat?.subCategories?.find((s: any) => s.id === product.subCategoryId);
       if (found) return found;
     }
     return undefined;
-  }, [product.subCategoryId]);
+  }, [categories, product.categoryId, product.subCategoryId]);
 
   return (
     <Link
@@ -71,9 +75,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, cartItem }) =
             borderRadius: '12px',
             marginTop: '16px',
             marginBottom: '12px',
+            overflow: 'hidden',
           }}
         >
-          {product.image}
+          <ProductImage image={product.image} alt={product.name} fill />
         </div>
 
         <div style={{ textAlign: 'left', marginBottom: '10px', flex: 1 }}>
