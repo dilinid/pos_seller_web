@@ -85,7 +85,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       cart: [],
       selectedSubCategory: null,
       searchQuery: '',
-      productsLoading: false,
+      productsLoading: true,
       productsError: null,
       categoriesLoading: false,
       categoriesError: null,
@@ -826,7 +826,10 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
 
 export const getFilteredProducts = (state: MarketplaceStoreState): Product[] => {
   return state.products.filter((product) => {
-    const matchesSubCategory = !state.selectedSubCategory || product.subCategoryId === state.selectedSubCategory;
+    const matchesSubCategory =
+      !state.selectedSubCategory ||
+      product.categoryId === state.selectedSubCategory ||
+      product.subCategoryId === state.selectedSubCategory;
     const query = state.searchQuery.toLowerCase();
     const matchesSearch =
       !query ||

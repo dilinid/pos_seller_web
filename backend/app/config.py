@@ -40,5 +40,9 @@ class Settings:
     FLASK_PORT: int = int(os.getenv("FLASK_PORT", "8000"))
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173")
 
+    # Item resource uploads (images/videos inserted by the external POS application).
+    # Leave empty to fall back to the local backend/uploads/ folder (dev default).
+    UPLOADS_DIR: str = os.getenv("UPLOADS_DIR", "")
+
 
 settings = Settings()
