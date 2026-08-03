@@ -27,8 +27,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { userSession, loading, user, logout } = useAuth();
   const isAuthenticated = !!userSession;
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userSession?.userRole) : false));
-  const hasPending = useSellerStore((s) => (user ? s.hasPendingApplication(user.id) : false));
+  const isSeller = useSellerStore((s) => s.isSeller(userSession?.userRole));
   const cart = useMarketplaceStore((s) => s.cart);
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
@@ -378,7 +377,7 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : isAuthenticated ? (
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              {isSeller ? (
+              {isSeller && (
                 <button
                   onClick={() => navigate('/seller/dashboard')}
                   style={{
@@ -392,15 +391,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 >
                   My Store
                 </button>
-              ) : hasPending ? (
-                <span style={{
-                  fontSize: '0.75rem', color: '#d97706', fontWeight: 600,
-                  background: '#fef3c7', padding: '4px 12px', borderRadius: '20px',
-                  whiteSpace: 'nowrap', lineHeight: 1.4,
-                }}>
-                  ⏳ Pending Review
-                </span>
-              ) : null}
+              )}
               <div
                 onClick={() => navigate("/profile")}
                 style={{

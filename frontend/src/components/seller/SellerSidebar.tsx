@@ -22,9 +22,7 @@ export const SellerSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
-  const profile = useSellerStore((s) =>
-    user ? s.profiles.find((p) => p.userId === user.id && p.status === 'approved') : undefined,
-  );
+  const profile = useSellerStore((s) => s.profile);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -34,7 +32,7 @@ export const SellerSidebar: React.FC = () => {
         <span className="seller-sidebar-logo">🏪</span>
         <div>
           <div className="seller-sidebar-title">Store Panel</div>
-          <div className="seller-sidebar-subtitle">{profile?.storeName || user?.name}</div>
+          <div className="seller-sidebar-subtitle">{profile.storeName || user?.name}</div>
         </div>
       </div>
 

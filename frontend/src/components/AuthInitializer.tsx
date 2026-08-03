@@ -11,7 +11,7 @@ export function AuthInitializer() {
       username: string,
     ): Promise<UserProfile | undefined> {
       const response = await fetchUserProfile(username);
-      if (response) {
+      if (response && typeof response === "object") {
         return {
           id: response.id,
           name: response.full_name,

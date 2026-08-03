@@ -1,25 +1,25 @@
 import { Truck, MapPin, Package } from 'lucide-react';
-import type { CartItem, Seller, SellerDeliveryConfig } from '../../types/marketplace.type';
+import type { CartItem } from '../../types/marketplace.type';
+import type { SellerProfile } from '../../types/seller.type';
 import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { ProductImage } from '../ui/ProductImage';
 import { calculateDeliveryFee } from '../../utils/delivery.utils';
 
 interface CheckoutSellerGroupProps {
-  seller: Seller;
+  seller: SellerProfile;
   items: CartItem[];
-  deliveryConfig: SellerDeliveryConfig;
   deliveryMethod: 'delivery' | 'pickup';
   districtId: string;
   onDeliveryMethodChange: (method: 'delivery' | 'pickup') => void;
 }
 
 export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
-  seller, items, deliveryConfig, deliveryMethod, districtId, onDeliveryMethodChange,
+  seller, items, deliveryMethod, districtId, onDeliveryMethodChange,
 }) => {
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const deliveryFee = calculateDeliveryFee(
-    deliveryConfig,
+    seller,
     deliveryMethod === 'delivery' ? districtId : null,
     items.map((i) => ({ productId: i.product.id, quantity: i.quantity, weight: i.product.weight, volume: i.product.volume })),
     subtotal,
@@ -28,7 +28,7 @@ export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
   return (
     <div className="premium-card" style={{ padding: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-        <SellerBadge seller={seller} size="md" to={`/store/${seller.id}`} />
+        <SellerBadge seller={seller} size="md" to="/store" />
 
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {seller.deliveryAvailable && (
@@ -121,9 +121,9 @@ export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
                 <>Delivery fee: <strong style={{ color: 'var(--text-primary)' }}>${deliveryFee.toFixed(2)}</strong></>
               )}
             </span>
-            {deliveryConfig.freeDeliveryMin !== null && deliveryFee > 0 && (
+            {seller.freeDeliveryMin !== null && deliveryFee > 0 && (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Free delivery on orders over ${deliveryConfig.freeDeliveryMin.toFixed(2)}
+                Free delivery on orders over ${seller.freeDeliveryMin.toFixed(2)}
               </div>
             )}
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>

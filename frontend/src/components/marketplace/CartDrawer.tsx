@@ -1,10 +1,7 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, X, Plus, Minus, Trash2, CheckSquare, Square } from 'lucide-react';
 import { useMarketplaceStore } from '../../stores/marketplace.store';
 import { useAuthStore } from '../../stores/auth.store';
-import { SELLERS } from '../../data/sellers';
-import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { ProductImage } from '../ui/ProductImage';
 
@@ -21,28 +18,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const removeFromCart = useMarketplaceStore((s) => s.removeFromCart);
   const updateQuantity = useMarketplaceStore((s) => s.updateQuantity);
   const toggleCartItem = useMarketplaceStore((s) => s.toggleCartItem);
-  const toggleSellerItems = useMarketplaceStore((s) => s.toggleSellerItems);
+  const toggleAllCartItems = useMarketplaceStore((s) => s.toggleAllCartItems);
 
   const checkedCart = cart.filter((item) => item.checked);
   const checkedCount = checkedCart.reduce((sum, item) => sum + item.quantity, 0);
   const checkedTotal = checkedCart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-
-  const sellerGroups = useMemo(() => {
-    const groups: { sellerId: string; items: typeof cart }[] = [];
-    const map = new Map<string, typeof cart>();
-    for (const item of cart) {
-      const existing = map.get(item.product.sellerId);
-      if (existing) {
-        existing.push(item);
-      } else {
-        map.set(item.product.sellerId, [item]);
-      }
-    }
-    for (const [sellerId, items] of map) {
-      groups.push({ sellerId, items });
-    }
-    return groups;
-  }, [cart]);
+  const allChecked = cart.length > 0 && cart.every((item) => item.checked);
 
   if (!isOpen) return null;
 
@@ -128,171 +109,135 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
             className="drawer-scroll"
             style={{ flex: 1, minHeight: 0, padding: '20px' }}
           >
-            {sellerGroups.map(({ sellerId, items }) => {
-              const seller = SELLERS.find((s) => s.id === sellerId);
-              const sellerAllChecked = items.every((i) => i.checked);
-              const sellerSubtotal = items.reduce(
-                (sum, i) => sum + i.product.price * i.quantity, 0
-              );
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <div
+                onClick={() => toggleAllCartItems()}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                {allChecked ? (
+                  <CheckSquare size={18} color="var(--primary)" />
+                ) : (
+                  <Square size={18} color="var(--text-muted)" />
+                )}
+              </div>
+              <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>
+                Select all
+              </span>
+            </div>
 
-              return (
+            <div style={{ paddingLeft: '26px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {cart.map((item) => (
                 <div
-                    key={sellerId}
+                  key={item.product.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 0',
+                    opacity: item.checked ? 1 : 0.5,
+                  }}
+                >
+                  <div
+                    onClick={() => toggleCartItem(item.product.id)}
                     style={{
-                      marginBottom: '20px',
-                      paddingBottom: '16px',
-                      borderBottom: '1px solid var(--border-color)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexShrink: 0,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <div
-                        onClick={() => toggleSellerItems(sellerId)}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        {sellerAllChecked ? (
-                          <CheckSquare size={18} color="var(--primary)" />
-                        ) : (
-                          <Square size={18} color="var(--text-muted)" />
-                        )}
-                      </div>
-                      {seller ? (
-                        <SellerBadge seller={seller} size="md" to={`/store/${seller.id}`} />
-                      ) : (
-                        <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>
-                          Unknown Seller
-                        </span>
-                      )}
-                    </div>
-
-                  <div style={{ paddingLeft: '26px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {items.map((item) => (
-                      <div
-                        key={item.product.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 0',
-                          opacity: item.checked ? 1 : 0.5,
-                        }}
-                      >
-                        <div
-                          onClick={() => toggleCartItem(item.product.id)}
-                          style={{
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {item.checked ? (
-                            <CheckSquare size={16} color="var(--primary)" />
-                          ) : (
-                            <Square size={16} color="var(--text-muted)" />
-                          )}
-                        </div>
+                    {item.checked ? (
+                      <CheckSquare size={16} color="var(--primary)" />
+                    ) : (
+                      <Square size={16} color="var(--text-muted)" />
+                    )}
+                  </div>
 
                         <ProductImage image={item.product.image} alt={item.product.name} size="1.3rem" />
 
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: '0.82rem',
-                              fontWeight: 600,
-                              color: 'var(--text-primary)',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {item.product.name}
-                          </div>
-                          <PriceDisplay price={item.product.price} mrp={item.product.mrp} size="sm" />
-                        </div>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <button
-                            onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                            style={{
-                              width: '22px',
-                              height: '22px',
-                              borderRadius: '50%',
-                              background: 'var(--bg-secondary)',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Minus size={9} />
-                          </button>
-                          <span
-                            style={{
-                              fontSize: '0.8rem',
-                              fontWeight: 700,
-                              width: '20px',
-                              textAlign: 'center',
-                            }}
-                          >
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => addToCart(item.product)}
-                            style={{
-                              width: '22px',
-                              height: '22px',
-                              borderRadius: '50%',
-                              background: 'var(--bg-secondary)',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Plus size={9} />
-                          </button>
-                        </div>
-
-                        <button
-                          onClick={() => removeFromCart(item.product.id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--danger)',
-                            padding: '2px',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {item.product.name}
+                    </div>
+                    <PriceDisplay price={item.product.price} mrp={item.product.mrp} size="sm" />
                   </div>
 
                   <div
                     style={{
-                      paddingLeft: '26px',
-                      marginTop: '4px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      color: 'var(--text-secondary)',
-                      textAlign: 'right',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
                     }}
                   >
-                    Subtotal: ${sellerSubtotal.toFixed(2)}
+                    <button
+                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        background: 'var(--bg-secondary)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Minus size={9} />
+                    </button>
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        width: '20px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => addToCart(item.product)}
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        background: 'var(--bg-secondary)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Plus size={9} />
+                    </button>
                   </div>
+
+                  <button
+                    onClick={() => removeFromCart(item.product.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--danger)',
+                      padding: '2px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
 
           <div

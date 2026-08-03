@@ -1,5 +1,5 @@
-import { Package, Clock } from 'lucide-react';
-import type { Seller } from '../../types/marketplace.type';
+import { Package } from 'lucide-react';
+import type { SellerProfile } from '../../types/seller.type';
 import { StarRating } from '../ui/StarRating';
 
 const AVATAR_COLORS = [
@@ -27,12 +27,13 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 interface StoreHeaderProps {
-  seller: Seller;
+  seller: SellerProfile;
   dynamicRating?: number;
   dynamicReviewCount?: number;
 }
 
 export const StoreHeader: React.FC<StoreHeaderProps> = ({ seller, dynamicRating, dynamicReviewCount }) => {
+  const storeName = seller.storeName || 'Our Store';
   const color = getAvatarColor(seller.id);
   const displayRating = dynamicRating ?? seller.rating;
   const displayReviewCount = dynamicReviewCount;
@@ -87,7 +88,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ seller, dynamicRating,
             backdropFilter: 'blur(4px)',
           }}
         >
-          {getInitials(seller.name)}
+          {getInitials(storeName)}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -100,7 +101,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ seller, dynamicRating,
               textShadow: '0 1px 3px rgba(0,0,0,0.15)',
             }}
           >
-            {seller.name}
+            {storeName}
           </h1>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem', color: hexToRgba('#ffffff', 0.9) }}>
@@ -110,27 +111,9 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ seller, dynamicRating,
               <Package size={14} /> {seller.productCount} products
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem', color: hexToRgba('#ffffff', 0.9) }}>
-              <Clock size={14} /> {seller.totalSales.toLocaleString()} sales
+              {seller.totalSales.toLocaleString()} sales
             </div>
           </div>
-          <div style={{ marginTop: '4px', fontSize: '0.78rem', color: hexToRgba('#ffffff', 0.7) }}>
-            Member since {seller.memberSince}
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: '6px 14px',
-            borderRadius: '20px',
-            background: hexToRgba('#ffffff', 0.15),
-            color: '#fff',
-            fontSize: '0.78rem',
-            fontWeight: 600,
-            backdropFilter: 'blur(4px)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          ⏱ {seller.responseTime}
         </div>
       </div>
     </div>

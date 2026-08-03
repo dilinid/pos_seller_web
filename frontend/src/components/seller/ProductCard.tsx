@@ -90,10 +90,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     setEditingReorder(false);
   };
 
-  const sellerProfile = useSellerStore((s) =>
-    s.profiles.find((p) => p.userId === draft.sellerUserId && p.status === 'approved'),
-  );
-  const pickupAddress = sellerProfile?.pickupAddress || '';
+  const sellerProfile = useSellerStore((s) => s.profile);
+  const pickupAddress = sellerProfile.pickupAddress || '';
 
   const canEditInline = draft.status === 'draft' || draft.status === 'changes_requested' || draft.status === 'approved' || draft.status === 'published';
 

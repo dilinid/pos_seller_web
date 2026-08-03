@@ -36,7 +36,6 @@ const PAYMENT_LABELS: Record<string, string> = {
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const orders = useMarketplaceStore((s) => s.orders);
-  const sellers = useMarketplaceStore((s) => s.sellers);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('all');
@@ -118,11 +117,6 @@ const OrdersPage: React.FC = () => {
             ) : (
               <div className="ords-card-list" style={{ display: 'flex', flexDirection: 'column' }}>
                 {filteredOrders.map((order) => {
-                  const sellerIds = Array.from(new Set(order.items.map((i) => i.sellerId)));
-                  const orderSellers = sellerIds
-                    .map((id) => sellers.find((s) => s.id === id))
-                    .filter(Boolean);
-
                   const latestItemStatus = order.items.reduce((latest, item) => {
                     const stepOrder = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'];
                     const currentIdx = stepOrder.indexOf(item.status);
@@ -208,13 +202,6 @@ const OrdersPage: React.FC = () => {
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                               {order.items.length} item{order.items.length > 1 ? 's' : ''}
-                              {orderSellers.length > 0 && (
-                                <> from <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                  {orderSellers.length <= 2
-                                    ? orderSellers.map((s) => s!.name).join(', ')
-                                    : `${orderSellers[0]!.name} +${orderSellers.length - 1} more`}
-                                </span></>
-                              )}
                             </div>
                           </div>
                         </div>

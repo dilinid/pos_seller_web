@@ -43,9 +43,7 @@ const PICKUP_TABS: Array<{ key: string; label: string; icon: typeof Clock }> = [
 
 const SellerOrders: React.FC = () => {
   const user = useAuthStore((s) => s.user);
-  const profile = useSellerStore((s) =>
-    s.profiles.find((p) => p.userId === user?.id && p.status === 'approved')
-  );
+  const profile = useSellerStore((s) => s.profile);
   const orders = useMarketplaceStore((s) => s.orders);
   const seedSellerOrders = useMarketplaceStore((s) => s.seedSellerOrders);
   const sellerUpdateItemStatus = useMarketplaceStore((s) => s.sellerUpdateItemStatus);
@@ -60,16 +58,15 @@ const SellerOrders: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const sellerId = profile?.id;
+  const sellerId = profile.id;
 
   useEffect(() => {
-    if (sellerId) seedSellerOrders(sellerId);
+    seedSellerOrders(sellerId);
   }, [seedSellerOrders, sellerId]);
 
   const statusTabs = method === 'pickup' ? PICKUP_TABS : DELIVERY_TABS;
 
   const sellerOrders = useMemo(() => {
-    if (!sellerId) return [];
     return orders.filter((o) =>
       o.items.some((i) => i.sellerId === sellerId && i.deliveryMethod === method)
     );
@@ -78,7 +75,7 @@ const SellerOrders: React.FC = () => {
   const filteredOrders = useMemo(() => {
     let result = sellerOrders;
     if (activeTab !== 'all') {
-      result = result.filter((o) => getSellerStatus(o, sellerId!) === activeTab);
+      result = result.filter((o) => getSellerStatus(o, sellerId) === activeTab);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -94,7 +91,6 @@ const SellerOrders: React.FC = () => {
   }, [sellerOrders, activeTab, searchQuery, sellerId]);
 
   const stats = useMemo(() => {
-    if (!sellerId) return { pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, total: 0 };
     const s = { pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, total: sellerOrders.length };
     for (const o of sellerOrders) {
       const st = getSellerStatus(o, sellerId);
@@ -111,7 +107,7 @@ const SellerOrders: React.FC = () => {
   const handleUpdateItemStatus = useCallback(
     (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string }) => {
       sellerUpdateItemStatus(orderId, productId, status, tracking);
-      if (status === 'delivered' && sellerId) {
+      if (status === 'delivered') {
         const order = orders.find((o) => o.id === orderId);
         if (order && !reviewPeriods.some((rp) => rp.orderId === orderId && rp.sellerId === sellerId)) {
           startReviewPeriod(orderId, sellerId, order.buyerName);
@@ -139,20 +135,6 @@ const SellerOrders: React.FC = () => {
       { label: 'Total', value: stats.total, color: 'var(--text-primary)', bg: '#f9fafb' },
     ];
   }, [stats, method]);
-
-  if (!sellerId) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <ClipboardList size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 6px' }}>
-          No Seller Profile
-        </h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          Complete your seller application to manage orders.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div>

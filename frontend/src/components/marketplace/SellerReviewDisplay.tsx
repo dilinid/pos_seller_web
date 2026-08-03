@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { MessageCircle } from 'lucide-react';
-import type { Seller, UserReview } from '../../types/marketplace.type';
+import type { UserReview } from '../../types/marketplace.type';
+import type { SellerProfile } from '../../types/seller.type';
 import { StarRating } from '../ui/StarRating';
 
 interface SellerReviewDisplayProps {
-  seller: Seller;
+  seller: SellerProfile;
   reviews: UserReview[];
 }
 

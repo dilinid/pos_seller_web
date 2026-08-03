@@ -1,34 +1,3 @@
-export interface Seller {
-  id: string;
-  name: string;
-  rating: number;
-  productCount: number;
-  memberSince: string;
-  description: string;
-  responseTime: string;
-  totalSales: number;
-  deliveryAvailable: boolean;
-  pickupAvailable: boolean;
-  pickupAddress: string;
-  estimatedDeliveryDays: string;
-}
-
-export interface FeeBracket {
-  id: string;
-  label: string;
-  fromValue: number;
-  toValue: number | null;
-  fee: number;
-}
-
-export interface SellerDeliveryConfig {
-  districtFees: Record<string, number>;
-  freeDeliveryMin: number | null;
-  weightFeeBrackets: FeeBracket[];
-  volumeFeeBrackets: FeeBracket[];
-  quantityFeeBrackets: FeeBracket[];
-}
-
 export interface District {
   id: string;
   name: string;
@@ -165,24 +134,3 @@ export interface Review {
   date: string;
 }
 
-export interface MarketplaceStore {
-  products: Product[];
-  sellers: Seller[];
-  categories: ProductSubCategory[];
-  cart: CartItem[];
-  selectedSubCategory: string | null;
-  searchQuery: string;
-  setSubCategory: (id: string | null) => void;
-  setSearchQuery: (query: string) => void;
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
-  toggleCartItem: (productId: string) => void;
-  toggleSellerItems: (sellerId: string) => void;
-  filteredProducts: () => Product[];
-  currentSubCategories: () => ProductSubCategory[];
-  cartCount: () => number;
-  cartTotal: () => number;
-  getSeller: (sellerId: string) => Seller | undefined;
-}

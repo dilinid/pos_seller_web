@@ -44,7 +44,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const SellerOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const user = useAuthStore((s) => s.user);
   const userRole = useAuthStore((s) => s.userSession?.userRole);
-  const isSeller = useSellerStore((s) => (user ? s.isSeller(user.id, userRole) : false));
+  const isSeller = useSellerStore((s) => s.isSeller(userRole));
   if (!user) return <Navigate to="/login" replace />;
   if (!isSeller) return <Navigate to="/" replace />;
   return <>{children}</>;
@@ -61,7 +61,7 @@ const AppContent: React.FC = () => {
         <Route path="/product/:productId" element={<ProductDetail />} />
 
         {/* Seller Storefront */}
-        <Route path="/store/:sellerId" element={<SellerStorefront />} />
+        <Route path="/store" element={<SellerStorefront />} />
 
         {/* Checkout & Payment Pages */}
         <Route

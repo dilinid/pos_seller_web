@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Wallet, Clock, TrendingUp, Search, DollarSign, Ban } from 'lucide-react';
 import type { Order, SellerPayoutStatus } from '../types/marketplace.type';
-import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { SellerPaymentCard } from '../components/seller/SellerPaymentCard';
@@ -25,30 +24,25 @@ function getOrderPayoutStatus(order: Order, sellerId: string): SellerPayoutStatu
 }
 
 const SellerPayments: React.FC = () => {
-  const user = useAuthStore((s) => s.user);
-  const profile = useSellerStore((s) =>
-    s.profiles.find((p) => p.userId === user?.id && p.status === 'approved')
-  );
+  const profile = useSellerStore((s) => s.profile);
   const orders = useMarketplaceStore((s) => s.orders);
   const seedSellerOrders = useMarketplaceStore((s) => s.seedSellerOrders);
 
   const [activeTab, setActiveTab] = useState<SellerPayoutStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const sellerId = profile?.id;
+  const sellerId = profile.id;
 
   useEffect(() => {
-    if (sellerId) seedSellerOrders(sellerId);
+    seedSellerOrders(sellerId);
   }, [seedSellerOrders, sellerId]);
 
   const sellerOrders = useMemo(() => {
-    if (!sellerId) return [];
     return orders.filter((o) => o.items.some((i) => i.sellerId === sellerId));
   }, [orders, sellerId]);
 
   const stats = useMemo(() => {
     const s = { paid: 0, pending: 0, processing: 0, on_hold: 0, total: 0, paidAmount: 0, pendingAmount: 0 };
-    if (!sellerId) return s;
     for (const order of sellerOrders) {
       const items = order.items.filter((i) => i.sellerId === sellerId);
       const amount = items.reduce((sum, i) => sum + i.price * i.quantity + i.deliveryFee, 0);
@@ -65,7 +59,7 @@ const SellerPayments: React.FC = () => {
   const filteredOrders = useMemo(() => {
     let result = sellerOrders;
     if (activeTab !== 'all') {
-      result = result.filter((o) => getOrderPayoutStatus(o, sellerId!) === activeTab);
+      result = result.filter((o) => getOrderPayoutStatus(o, sellerId) === activeTab);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -83,20 +77,6 @@ const SellerPayments: React.FC = () => {
   const handleCardClick = useCallback((orderId: string) => {
     console.log('Payment detail for:', orderId);
   }, []);
-
-  if (!sellerId) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <Wallet size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 6px' }}>
-          No Seller Profile
-        </h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          Complete your seller application to view payments.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -243,7 +223,7 @@ const SellerPayments: React.FC = () => {
             <SellerPaymentCard
               key={order.id}
               order={order}
-              sellerId={sellerId!}
+              sellerId={sellerId}
               onClick={() => handleCardClick(order.id)}
             />
           ))}

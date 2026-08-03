@@ -8,7 +8,6 @@ export interface FeeBracket {
 
 export interface SellerProfile {
   id: string;
-  userId: string;
   storeName: string;
   description: string;
   contactPhone: string;
@@ -23,27 +22,7 @@ export interface SellerProfile {
   volumeFeeBrackets: FeeBracket[];
   quantityFeeBrackets: FeeBracket[];
   payoutMethod: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  appliedAt: string;
-  approvedAt?: string;
   rating: number;
   totalSales: number;
   productCount: number;
-}
-
-export interface SellerApplicationSubmission {
-  storeName: string;
-  description: string;
-  contactPhone: string;
-  contactEmail: string;
-  pickupAddress: string;
-  deliveryAvailable: boolean;
-  pickupAvailable: boolean;
-  estimatedDeliveryDays: string;
-  districtFees?: Record<string, number>;
-  freeDeliveryMin?: number | null;
-  weightFeeBrackets?: FeeBracket[];
-  volumeFeeBrackets?: FeeBracket[];
-  quantityFeeBrackets?: FeeBracket[];
-  payoutMethod: string;
 }
