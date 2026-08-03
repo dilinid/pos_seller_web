@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Plus, Minus, Check } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
+import { useSellerStore } from '../stores/seller.store';
 import { REVIEWS } from '../data/reviews';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
@@ -19,7 +20,7 @@ const ProductDetail: React.FC = () => {
   const isAuthenticated = !!useAuthStore((s) => s.userSession);
 
   const products = useMarketplaceStore((s) => s.products);
-  const sellers = useMarketplaceStore((s) => s.sellers);
+  const seller = useSellerStore((s) => s.profile);
   const categories = useMarketplaceStore((s) => s.categories);
   const addToCart = useMarketplaceStore((s) => s.addToCart);
   const setDirectBuyItem = useMarketplaceStore((s) => s.setDirectBuyItem);
@@ -33,7 +34,6 @@ const ProductDetail: React.FC = () => {
   const [addedToCart, setAddedToCart] = useState(false);
 
   const product = useMemo(() => products.find((p) => p.id === productId), [products, productId]);
-  const seller = useMemo(() => sellers.find((s) => s.id === product?.sellerId), [sellers, product?.sellerId]);
   const category = useMemo(
     () => categories.find((c) => c.id === product?.subCategoryId),
     [categories, product?.subCategoryId]
@@ -288,7 +288,7 @@ const ProductDetail: React.FC = () => {
             </div>
 
             {/* Seller Card */}
-            {seller && <SellerCard seller={seller} />}
+            <SellerCard seller={seller} />
 
             {/* Features */}
             {product.features.length > 0 && (

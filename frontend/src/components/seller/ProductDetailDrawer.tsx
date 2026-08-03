@@ -100,13 +100,11 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
 
   const canEditInline = draft.status === 'draft' || draft.status === 'changes_requested' || draft.status === 'approved';
 
-  const sellerProfile = useSellerStore((s) =>
-    s.profiles.find((p) => p.userId === draft.sellerUserId && p.status === 'approved'),
-  );
-  const districtFeeEntries = sellerProfile ? Object.entries(sellerProfile.districtFees ?? {}) : [];
-  const pickupAddress = sellerProfile?.pickupAddress || '';
-  const estimatedDeliveryDays = sellerProfile?.estimatedDeliveryDays || '';
-  const freeDeliveryMin = sellerProfile?.freeDeliveryMin ?? null;
+  const sellerProfile = useSellerStore((s) => s.profile);
+  const districtFeeEntries = Object.entries(sellerProfile.districtFees ?? {});
+  const pickupAddress = sellerProfile.pickupAddress || '';
+  const estimatedDeliveryDays = sellerProfile.estimatedDeliveryDays || '';
+  const freeDeliveryMin = sellerProfile.freeDeliveryMin ?? null;
 
   return (
     <>

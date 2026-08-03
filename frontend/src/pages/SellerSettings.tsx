@@ -2,17 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft } from 'lucide-react';
 import { useSellerStore } from '../stores/seller.store';
-import { useAuthStore } from '../stores/auth.store';
 import { DistrictFeeTable } from '../components/seller/DistrictFeeTable';
 import { FeeBracketEditor } from '../components/seller/FeeBracketEditor';
 import type { FeeBracket } from '../types/seller.type';
 
 const SellerSettings: React.FC = () => {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const profile = useSellerStore((s) =>
-    user ? s.profiles.find((p) => p.userId === user.id && p.status === 'approved') : undefined,
-  );
+  const profile = useSellerStore((s) => s.profile);
   const updateProfile = useSellerStore((s) => s.updateProfile);
 
   const [storeName, setStoreName] = useState('');
@@ -30,33 +26,23 @@ const SellerSettings: React.FC = () => {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (profile) {
-      setStoreName(profile.storeName);
-      setDescription(profile.description);
-      setContactPhone(profile.contactPhone);
-      setPickupAddress(profile.pickupAddress);
-      setDeliveryAvailable(profile.deliveryAvailable);
-      setPickupAvailable(profile.pickupAvailable);
-      setEstimatedDeliveryDays(profile.estimatedDeliveryDays);
-      setDistrictFees(profile.districtFees ?? {});
-      setFreeDeliveryMin(profile.freeDeliveryMin != null ? String(profile.freeDeliveryMin) : '');
-      setWeightFeeBrackets(profile.weightFeeBrackets ?? []);
-      setVolumeFeeBrackets(profile.volumeFeeBrackets ?? []);
-      setQuantityFeeBrackets(profile.quantityFeeBrackets ?? []);
-    }
+    setStoreName(profile.storeName);
+    setDescription(profile.description);
+    setContactPhone(profile.contactPhone);
+    setPickupAddress(profile.pickupAddress);
+    setDeliveryAvailable(profile.deliveryAvailable);
+    setPickupAvailable(profile.pickupAvailable);
+    setEstimatedDeliveryDays(profile.estimatedDeliveryDays);
+    setDistrictFees(profile.districtFees ?? {});
+    setFreeDeliveryMin(profile.freeDeliveryMin != null ? String(profile.freeDeliveryMin) : '');
+    setWeightFeeBrackets(profile.weightFeeBrackets ?? []);
+    setVolumeFeeBrackets(profile.volumeFeeBrackets ?? []);
+    setQuantityFeeBrackets(profile.quantityFeeBrackets ?? []);
   }, [profile]);
-
-  if (!profile) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Seller profile not found.</p>
-      </div>
-    );
-  }
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(profile.id, {
+    updateProfile({
       storeName,
       description,
       contactPhone,

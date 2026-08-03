@@ -146,7 +146,7 @@ export function useProfile() {
     username: string,
   ): Promise<UserProfile | undefined> {
     const response = await fetchUserProfile(username);
-    if (response) {
+    if (response && typeof response === "object") {
       return {
         id: response.id,
         name: response.full_name,
@@ -166,9 +166,7 @@ export function useProfile() {
   async function getDistricts(): Promise<void> {
     try {
       const response = await fetchDistricts();
-      if (response) {
-        setDistricts(response);
-      }
+      setDistricts(Array.isArray(response) ? response : []);
     } catch (err) {
       console.error(err);
       setDistricts([]);
@@ -178,9 +176,7 @@ export function useProfile() {
   async function getGsDivisions(districtId: string) {
     try {
       const response = await fetchDsDivisions(districtId);
-      if (response) {
-        setDsDivisions(response);
-      }
+      setDsDivisions(Array.isArray(response) ? response : []);
     } catch (err) {
       console.error(err);
       setError("An error occurred. Please try again.");
@@ -190,9 +186,7 @@ export function useProfile() {
   async function getGnDivisions(DsDivisionId: string) {
     try {
       const response = await fetchGnDivisions(DsDivisionId);
-      if (response) {
-        setGnDivisions(response);
-      }
+      setGnDivisions(Array.isArray(response) ? response : []);
     } catch (err) {
       console.error(err);
       setError("An error occurred. Please try again.");

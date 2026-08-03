@@ -3,18 +3,19 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, MapPin, CreditCard } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
+import { useSellerStore } from '../stores/seller.store';
 import { PaymentStatusBadge } from '../components/marketplace/OrderStatusBadge';
 import { OrderSellerGroup } from '../components/marketplace/OrderSellerGroup';
 import { PaymentSlipUpload } from '../components/marketplace/PaymentSlipUpload';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
-import type { UserReview, OrderItem } from '../types/marketplace.type';
+import type { UserReview } from '../types/marketplace.type';
 
 const OrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const orders = useMarketplaceStore((s) => s.orders);
-  const sellers = useMarketplaceStore((s) => s.sellers);
+  const profile = useSellerStore((s) => s.profile);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
   const reviewPeriods = useMarketplaceStore((s) => s.reviewPeriods);
   const submitReview = useMarketplaceStore((s) => s.submitReview);
@@ -38,34 +39,17 @@ const OrderDetailPage: React.FC = () => {
     [orderReviews],
   );
 
-  const sellerGroups = useMemo(() => {
-    if (!order) return [];
-    const map = new Map<string, OrderItem[]>();
-    for (const item of order.items) {
-      const existing = map.get(item.sellerId);
-      if (existing) existing.push(item);
-      else map.set(item.sellerId, [item]);
-    }
-    return Array.from(map.entries()).map(([sellerId, items]) => ({
-      sellerId,
-      items,
-      seller: sellers.find((s) => s.id === sellerId)!,
-    }));
-  }, [order, sellers]);
-
   useEffect(() => {
     if (!order) return;
     const DELIVERED_STATUSES = new Set(['delivered', 'completed']);
-    for (const { sellerId, items } of sellerGroups) {
-      const allDelivered = items.every((i) => DELIVERED_STATUSES.has(i.status));
-      const alreadyStarted = reviewPeriods.some(
-        (rp) => rp.orderId === order.id && rp.sellerId === sellerId
-      );
-      if (allDelivered && !alreadyStarted) {
-        startReviewPeriod(order.id, sellerId, userId);
-      }
+    const allDelivered = order.items.every((i) => DELIVERED_STATUSES.has(i.status));
+    const alreadyStarted = reviewPeriods.some(
+      (rp) => rp.orderId === order.id && rp.sellerId === profile.id
+    );
+    if (allDelivered && !alreadyStarted) {
+      startReviewPeriod(order.id, profile.id, userId);
     }
-  }, [order, sellerGroups, reviewPeriods, startReviewPeriod, userId]);
+  }, [order, profile.id, reviewPeriods, startReviewPeriod, userId]);
 
   const handleReviewSubmit = (review: UserReview) => {
     submitReview(review);
@@ -165,23 +149,18 @@ const OrderDetailPage: React.FC = () => {
 
             <div className="od-grid">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {sellerGroups.map(({ sellerId, items, seller }) => (
-                  seller ? (
-                    <OrderSellerGroup
-                      key={sellerId}
-                      seller={seller}
-                      items={items}
-                      orderId={order.id}
-                      existingReviews={reviewMap}
-                      onReviewSubmit={handleReviewSubmit}
-                      reviewPeriod={reviewPeriods.find((rp) => rp.orderId === order.id && rp.sellerId === sellerId)}
-                      userId={userId}
-                      userName={userName}
-                      onSellerReviewSubmit={handleSellerReviewSubmit}
-                      onStartReviewPeriod={handleStartReviewPeriod}
-                    />
-                  ) : null
-                ))}
+                <OrderSellerGroup
+                  seller={profile}
+                  items={order.items}
+                  orderId={order.id}
+                  existingReviews={reviewMap}
+                  onReviewSubmit={handleReviewSubmit}
+                  reviewPeriod={reviewPeriods.find((rp) => rp.orderId === order.id && rp.sellerId === profile.id)}
+                  userId={userId}
+                  userName={userName}
+                  onSellerReviewSubmit={handleSellerReviewSubmit}
+                  onStartReviewPeriod={handleStartReviewPeriod}
+                />
               </div>
 
               <div className="od-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

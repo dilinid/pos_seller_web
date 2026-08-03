@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Truck, MapPin, Star, ChevronDown, ChevronUp } from 'lucide-react';
-import type { OrderItem, UserReview, Seller, ReviewPeriod } from '../../types/marketplace.type';
+import type { OrderItem, UserReview, ReviewPeriod } from '../../types/marketplace.type';
+import type { SellerProfile } from '../../types/seller.type';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
@@ -12,7 +13,7 @@ import { ReviewForm } from './ReviewForm';
 import { MutualReviewStatus } from './MutualReviewStatus';
 
 interface OrderSellerGroupProps {
-  seller: Seller;
+  seller: SellerProfile;
   items: OrderItem[];
   orderId: string;
   existingReviews: Map<string, UserReview>;
@@ -31,6 +32,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
   const [expanded, setExpanded] = useState(true);
   const [reviewingProduct, setReviewingProduct] = useState<string | null>(null);
   const [reviewingSeller, setReviewingSeller] = useState(false);
+  const storeName = seller.storeName || 'Our Store';
 
   const deliveryMethod = items[0]?.deliveryMethod ?? 'delivery';
   const anyDelivered = items.some((i) => i.status === 'delivered' || i.status === 'completed');
@@ -53,7 +55,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-            <SellerBadge seller={seller} size="md" to={`/store/${seller.id}`} />
+            <SellerBadge seller={seller} size="md" to="/store" />
             <div style={{
               display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
               padding: '2px 8px', borderRadius: '6px',
@@ -90,7 +92,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
               fontSize: '0.78rem', fontWeight: 600, color: '#166534',
             }}>
               <span style={{ fontSize: '0.9rem' }}>✍️</span>
-              Review your items and rate {seller.name} as a seller
+              Review your items and rate {storeName} as a seller
             </div>
           )}
           {items.map((item, idx) => {
@@ -223,7 +225,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
                 }}
               >
                 <Star size={15} fill="#166534" />
-                Rate {seller.name} as a seller
+                Rate {storeName} as a seller
               </button>
             </div>
           )}
@@ -236,7 +238,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
                 orderId={orderId}
                 reviewerId={userId}
                 reviewerName={userName}
-                targetLabel={seller.name}
+                targetLabel={storeName}
                 onSubmit={(review) => {
                   onSellerReviewSubmit(review);
                   setReviewingSeller(false);
@@ -269,7 +271,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
               <MutualReviewStatus
                 period={reviewPeriod}
                 buyerName={userName}
-                sellerName={seller.name}
+                sellerName={storeName}
               />
             </div>
           )}

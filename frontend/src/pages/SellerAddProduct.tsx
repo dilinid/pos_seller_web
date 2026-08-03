@@ -25,9 +25,7 @@ const SellerAddProduct: React.FC = () => {
   const navigate = useNavigate();
   const { draftId } = useParams<{ draftId: string }>();
   const user = useAuthStore((s) => s.user);
-  const sellerProfile = useSellerStore((s) =>
-    user ? s.profiles.find((p) => p.userId === user.id && p.status === 'approved') : undefined,
-  );
+  const sellerProfile = useSellerStore((s) => s.profile);
   const items = useProductDraftStore((s) => s.items);
   const saveDraft = useProductDraftStore((s) => s.saveDraft);
   const updateDraft = useProductDraftStore((s) => s.updateDraft);
@@ -160,7 +158,6 @@ const SellerAddProduct: React.FC = () => {
     if (!deliveryAvailable && !pickupAvailable) {
       return 'Select at least one delivery option (Delivery or Pickup) for this product.';
     }
-    if (!sellerProfile) return 'Seller profile not found. Please complete your seller registration.';
     if (deliveryAvailable && !hasDeliveryConfig(sellerProfile)) {
       return 'Configure your delivery settings (district fees and weight brackets) in your Seller Profile before offering delivery.';
     }
@@ -485,7 +482,7 @@ const SellerAddProduct: React.FC = () => {
               Select at least Delivery or Pickup for this product.
             </div>
           )}
-          {deliveryAvailable && sellerProfile && !hasDeliveryConfig(sellerProfile) && (
+          {deliveryAvailable && !hasDeliveryConfig(sellerProfile) && (
             <div style={{
               padding: '10px 14px', borderRadius: '10px', background: '#fffbeb',
               border: '1px solid #fde68a', fontSize: '0.82rem', color: '#92400e',
@@ -498,7 +495,7 @@ const SellerAddProduct: React.FC = () => {
               before offering delivery.
             </div>
           )}
-          {pickupAvailable && sellerProfile && !hasPickupConfig(sellerProfile) && (
+          {pickupAvailable && !hasPickupConfig(sellerProfile) && (
             <div style={{
               padding: '10px 14px', borderRadius: '10px', background: '#fffbeb',
               border: '1px solid #fde68a', fontSize: '0.82rem', color: '#92400e',

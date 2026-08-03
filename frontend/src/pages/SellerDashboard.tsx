@@ -1,22 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { Package, ClipboardList, DollarSign, Star, PlusCircle, User, BarChart3 } from 'lucide-react';
 import { useSellerStore } from '../stores/seller.store';
-import { useAuthStore } from '../stores/auth.store';
 
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const profile = useSellerStore((s) =>
-    user ? s.profiles.find((p) => p.userId === user.id && p.status === 'approved') : undefined,
-  );
-
-  if (!profile) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Seller profile not found.</p>
-      </div>
-    );
-  }
+  const profile = useSellerStore((s) => s.profile);
 
   const STATS = [
     { icon: Package, value: profile.productCount, label: 'Products', color: 'var(--primary)', bg: 'var(--primary-light)' },

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Product, CartItem, ProductSubCategory, Seller, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
+import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
 import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
 import { SELLERS } from '../data/sellers';
@@ -8,7 +8,6 @@ import { fetchMarketplaceProducts, fetchMarketplaceCategories } from '../apis/ma
 
 interface MarketplaceStoreState {
   products: Product[];
-  sellers: Seller[];
   categories: ProductSubCategory[];
   cart: CartItem[];
   selectedSubCategory: string | null;
@@ -27,16 +26,16 @@ interface MarketplaceStoreState {
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   toggleCartItem: (productId: string) => void;
-  toggleSellerItems: (sellerId: string) => void;
+  toggleAllCartItems: () => void;
   removeCheckedItems: () => void;
 
   deliveryAddress: string;
   deliveryDistrict: string;
-  deliveryMethod: Record<string, 'delivery' | 'pickup'>;
+  deliveryMethod: 'delivery' | 'pickup' | null;
   orderNotes: string;
   setDeliveryAddress: (address: string) => void;
   setDeliveryDistrict: (district: string) => void;
-  setDeliveryMethod: (sellerId: string, method: 'delivery' | 'pickup') => void;
+  setDeliveryMethod: (method: 'delivery' | 'pickup') => void;
   setOrderNotes: (notes: string) => void;
   resetCheckout: () => void;
 
@@ -69,7 +68,7 @@ interface MarketplaceStoreState {
 const CHECKOUT_INIT = {
   deliveryAddress: '',
   deliveryDistrict: 'dist-colombo',
-  deliveryMethod: {} as Record<string, 'delivery' | 'pickup'>,
+  deliveryMethod: null as 'delivery' | 'pickup' | null,
   orderNotes: '',
   paymentMethod: 'bank' as PaymentMethodType,
   selectedAccountId: null as string | null,
@@ -80,7 +79,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
   persist(
     (set, get) => ({
       products: PRODUCT_CATALOG,
-      sellers: SELLERS,
       categories: MARKETPLACE_CATEGORIES,
       cart: [],
       selectedSubCategory: null,
@@ -164,14 +162,11 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         });
       },
 
-      toggleSellerItems: (sellerId) => {
+      toggleAllCartItems: () => {
         const { cart } = get();
-        const sellerItems = cart.filter((item) => item.product.sellerId === sellerId);
-        const allChecked = sellerItems.every((item) => item.checked);
+        const allChecked = cart.every((item) => item.checked);
         set({
-          cart: cart.map((item) =>
-            item.product.sellerId === sellerId ? { ...item, checked: !allChecked } : item
-          ),
+          cart: cart.map((item) => ({ ...item, checked: !allChecked })),
         });
       },
 
@@ -181,8 +176,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
 
       setDeliveryAddress: (address) => set({ deliveryAddress: address }),
       setDeliveryDistrict: (district) => set({ deliveryDistrict: district }),
-      setDeliveryMethod: (sellerId, method) =>
-        set({ deliveryMethod: { ...get().deliveryMethod, [sellerId]: method } }),
+      setDeliveryMethod: (method) => set({ deliveryMethod: method }),
       setOrderNotes: (notes) => set({ orderNotes: notes }),
       resetCheckout: () => set({ ...CHECKOUT_INIT }),
 
@@ -298,18 +292,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
             };
           }
 
-          function itemOther(
-            pid: string, name: string, img: string, price: number, qty: number,
-            otherSellerId: string, sellerName: string, status: OrderStatus, overrides?: Partial<any>
-          ): any {
-            return {
-              productId: pid, productName: name, productImage: img, price,
-              quantity: qty, unit: '1 pc', sellerId: otherSellerId, sellerName,
-              deliveryMethod: 'delivery' as const, deliveryFee: 4.00, status,
-              ...overrides,
-            };
-          }
-
           const seedOrders: Order[] = [
             {
               id: 'ORD-DEMO-001', createdAt: ago(0.5), updatedAt: ago(0.5),
@@ -406,7 +388,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               items: [
                 item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 2, 'confirmed', { unit: '1L Carton', mrp: 5.49 }),
                 item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'confirmed', { unit: '12 Pack' }),
-                itemOther('prod_ext_1', 'Artisan Sourdough', '🍞', 8.50, 1, 's4', 'Artisan Bakery', 'confirmed'),
+                item('prod_ext_1', 'Artisan Sourdough', '🍞', 8.50, 1, 'confirmed'),
               ],
             },
             {
@@ -461,7 +443,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               items: [
                 item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 1, 'cancelled', { unit: '1L Carton', mrp: 5.49 }),
                 item('prod_super_7', 'Aged Cheddar Block', '🧀', 8.99, 1, 'cancelled', { unit: '500g Block' }),
-                itemOther('prod_ext_2', 'Chocolate Croissant', '🥐', 5.50, 2, 's4', 'Artisan Bakery', 'cancelled'),
+                item('prod_ext_2', 'Chocolate Croissant', '🥐', 5.50, 2, 'cancelled'),
               ],
             },
             {
@@ -491,96 +473,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           }
         }
       },
-      seedBuyerOrders: (buyerName: string) => {
-        const { orders, sellers } = get();
-        const existingDemoMatch = orders.some(
-          (o) => o.id.startsWith('ORD-DEMO-B') && o.buyerName === buyerName
-        );
-        if (!existingDemoMatch) {
-          const nonDemo = orders.filter((o) => !o.id.startsWith('ORD-DEMO-B'));
-          const now = Date.now();
-          const day = 86400000;
-          function ago(d: number) { return new Date(now - d * day).toISOString(); }
-
-          const seller1 = sellers[0]?.id ?? 'seller_1';
-          const seller1Name = sellers[0]?.name ?? 'Green Harvest Market';
-          const seller2 = sellers[1]?.id ?? 'seller_2';
-          const seller2Name = sellers[1]?.name ?? seller1Name;
-
-          function item(
-            pid: string, name: string, img: string, price: number, qty: number,
-            status: OrderStatus, sid: string, sname: string, overrides?: Partial<any>
-          ): any {
-            return {
-              productId: pid, productName: name, productImage: img, price,
-              quantity: qty, unit: '1 pc', sellerId: sid, sellerName: sname,
-              deliveryMethod: 'delivery' as const, deliveryFee: 3.50, status,
-              ...overrides,
-            };
-          }
-
-          const seedOrders: Order[] = [
-            {
-              id: 'ORD-DEMO-B1', createdAt: ago(2), updatedAt: ago(1),
-              buyerName, buyerEmail: `${buyerName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-              deliveryAddress: '42 Galle Road, Colombo 03', deliveryDistrict: 'dist-colombo',
-              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
-              grandTotal: 32.48, estimatedDelivery: '3-5 business days',
-              items: [
-                item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 2, 'delivered', seller1, seller1Name, { unit: '1L Carton', mrp: 5.49, sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-003', sellerPayoutDate: '2026-07-16' }),
-                item('prod_super_7', 'Aged Cheddar Block', '🧀', 8.99, 1, 'delivered', seller1, seller1Name, { unit: '500g Block', sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-003', sellerPayoutDate: '2026-07-16' }),
-              ],
-            },
-            {
-              id: 'ORD-DEMO-B2', createdAt: ago(5), updatedAt: ago(3),
-              buyerName, buyerEmail: `${buyerName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-              deliveryAddress: '123 Temple Road, Kandy', deliveryDistrict: 'dist-kandy',
-              orderNotes: '', paymentMethod: 'bank', paymentStatus: 'paid',
-              grandTotal: 18.99, estimatedDelivery: '3-5 business days',
-              items: [
-                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 1, 'delivered', seller1, seller1Name, { unit: '1L Bottle', mrp: 14.99, sellerPayoutStatus: 'pending' }),
-              ],
-            },
-            {
-              id: 'ORD-DEMO-B3', createdAt: ago(10), updatedAt: ago(8),
-              buyerName, buyerEmail: `${buyerName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-              deliveryAddress: '55 Lake Drive, Nuwara Eliya', deliveryDistrict: 'dist-nuwaraeliya',
-              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
-              grandTotal: 25.98, estimatedDelivery: '3-5 business days',
-              items: [
-                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'completed', seller2, seller2Name, { unit: '12 Pack', sellerPayoutStatus: 'paid', sellerPayoutMethod: 'direct_deposit', sellerPayoutRef: 'DD-2025-008', sellerPayoutDate: '2026-07-10' }),
-                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'completed', seller2, seller2Name, { unit: '1 Loaf (800g)', mrp: 8.99, sellerPayoutStatus: 'paid', sellerPayoutMethod: 'direct_deposit', sellerPayoutRef: 'DD-2025-008', sellerPayoutDate: '2026-07-10' }),
-              ],
-            },
-            {
-              id: 'ORD-DEMO-B4', createdAt: ago(1.5), updatedAt: ago(0.5),
-              buyerName, buyerEmail: `${buyerName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-              deliveryAddress: '88 Main Street, Gampaha', deliveryDistrict: 'dist-gampaha',
-              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
-              grandTotal: 15.50, estimatedDelivery: '3-5 business days',
-              items: [
-                item('prod_super_2', 'Organic Whole Milk', '🥛', 4.50, 1, 'shipped', seller1, seller1Name, { unit: '1L Carton', mrp: 5.49 }),
-              ],
-            },
-          ];
-          set({ orders: [...nonDemo, ...seedOrders] });
-        }
-        // Always seed review periods — covers both newly created and pre-existing demo orders
-        const currentPeriods = get().reviewPeriods;
-        for (const order of get().orders) {
-          if (!order.id.startsWith('ORD-DEMO-B') || order.buyerName !== buyerName) continue;
-          const sellerIds = [...new Set(order.items.map((i) => i.sellerId))];
-          for (const sid of sellerIds) {
-            const sellerItems = order.items.filter((i) => i.sellerId === sid);
-            const allDelivered = sellerItems.length > 0 && sellerItems.every(
-              (i) => i.status === 'delivered' || i.status === 'completed'
-            );
-            if (allDelivered && !currentPeriods.some((rp) => rp.orderId === order.id && rp.sellerId === sid)) {
-              get().startReviewPeriod(order.id, sid, order.buyerName);
-            }
-          }
-        }
-      },
       updateOrderPaymentStatus: (orderId, status) => {
         set({
           orders: get().orders.map((o) =>
@@ -602,11 +494,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         }
 
         if (review.targetType === 'seller') {
-          const sellerReviews = updatedReviews.filter((r) => r.targetType === 'seller' && r.targetId === review.targetId);
-          const avg = sellerReviews.reduce((s, r) => s + r.rating, 0) / sellerReviews.length;
-          updates.sellers = state.sellers.map((s) =>
-            s.id === review.targetId ? { ...s, rating: Math.round(avg * 10) / 10 } : s
-          );
           updates.reviewPeriods = state.reviewPeriods.map((rp) =>
             rp.orderId === review.orderId && rp.sellerId === review.targetId
               ? { ...rp, buyerReviewedSeller: true } : rp
@@ -718,7 +605,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
 
         if (autoReviews.length > 0) {
           const newProductReviews = updatedReviews.filter((r) => r.targetType === 'product');
-          const newSellerReviews = updatedReviews.filter((r) => r.targetType === 'seller');
 
           const seen = new Set<string>();
           newProductReviews.forEach((r) => {
@@ -728,18 +614,6 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               const avg = revs.reduce((s, rr) => s + rr.rating, 0) / revs.length;
               updates.products = (updates.products || get().products).map((p) =>
                 p.id === r.targetId ? { ...p, rating: Math.round(avg * 10) / 10, reviewCount: revs.length } : p
-              );
-            }
-          });
-
-          const seenSellers = new Set<string>();
-          newSellerReviews.forEach((r) => {
-            if (!seenSellers.has(r.targetId)) {
-              seenSellers.add(r.targetId);
-              const revs = newSellerReviews.filter((rr) => rr.targetId === r.targetId);
-              const avg = revs.reduce((s, rr) => s + rr.rating, 0) / revs.length;
-              updates.sellers = (updates.sellers || get().sellers).map((s) =>
-                s.id === r.targetId ? { ...s, rating: Math.round(avg * 10) / 10 } : s
               );
             }
           });
@@ -841,8 +715,4 @@ export const getFilteredProducts = (state: MarketplaceStoreState): Product[] => 
 
 export const getCurrentSubCategories = (state: MarketplaceStoreState): ProductSubCategory[] => {
   return state.categories;
-};
-
-export const getSeller = (state: MarketplaceStoreState, sellerId: string): Seller | undefined => {
-  return state.sellers.find((s) => s.id === sellerId);
 };

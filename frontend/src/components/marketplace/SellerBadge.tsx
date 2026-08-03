@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import type { Seller } from '../../types/marketplace.type';
+import type { SellerProfile } from '../../types/seller.type';
 
 const AVATAR_COLORS = [
   '#0060e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -24,7 +24,7 @@ function getAvatarColor(sellerId: string): string {
 }
 
 interface SellerBadgeProps {
-  seller: Seller;
+  seller: SellerProfile;
   size?: 'sm' | 'md';
   to?: string;
 }
@@ -33,6 +33,7 @@ export const SellerBadge: React.FC<SellerBadgeProps> = ({ seller, size = 'sm', t
   const navigate = useNavigate();
   const avatarSize = size === 'md' ? 32 : 24;
   const fontSize = size === 'md' ? '0.75rem' : '0.6rem';
+  const storeName = seller.storeName || 'Our Store';
   const color = getAvatarColor(seller.id);
 
   const inner = (
@@ -59,7 +60,7 @@ export const SellerBadge: React.FC<SellerBadgeProps> = ({ seller, size = 'sm', t
           lineHeight: 1,
         }}
       >
-        {getInitials(seller.name)}
+        {getInitials(storeName)}
       </div>
       <span
         style={{
@@ -71,7 +72,7 @@ export const SellerBadge: React.FC<SellerBadgeProps> = ({ seller, size = 'sm', t
           textOverflow: 'ellipsis',
         }}
       >
-        {seller.name}
+        {storeName}
       </span>
     </div>
   );

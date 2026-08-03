@@ -7,7 +7,7 @@ import { useAuthStore } from '../../stores/auth.store';
 export const SellerLayout: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const profile = useSellerStore((s) => s.profiles.find((p) => p.userId === user?.id && p.status === 'approved'));
+  const profile = useSellerStore((s) => s.profile);
 
   const handleSignOut = () => {
     navigate('/');
@@ -19,12 +19,9 @@ export const SellerLayout: React.FC = () => {
       <div className="seller-main">
         <header className="seller-header">
           <h1 className="seller-header-title">
-            Welcome, {profile?.storeName || user?.name}
+            Welcome, {profile.storeName || user?.name}
           </h1>
           <div className="seller-header-right">
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              {profile?.id}
-            </span>
             <button
               onClick={handleSignOut}
               className="btn btn-secondary"

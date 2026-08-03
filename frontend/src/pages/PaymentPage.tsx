@@ -9,9 +9,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
 import { usePaymentAccountStore } from '../stores/payment-account.store';
 import { useCODStore } from '../stores/cod.store';
-import { DELIVERY_CONFIG } from '../data/delivery.config';
 import { calculateDeliveryFee } from '../utils/delivery.utils';
-import type { SellerDeliveryConfig } from '../types/marketplace.type';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { PaymentMethodCard } from '../components/marketplace/PaymentMethodCard';
@@ -22,7 +20,7 @@ const PaymentPage: React.FC = () => {
 
   const cart = useMarketplaceStore((s) => s.cart);
   const directBuyItem = useMarketplaceStore((s) => s.directBuyItem);
-  const sellers = useMarketplaceStore((s) => s.sellers);
+  const profile = useSellerStore((s) => s.profile);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const deliveryDistrict = useMarketplaceStore((s) => s.deliveryDistrict);
@@ -71,52 +69,20 @@ const PaymentPage: React.FC = () => {
 
   const paymentAccounts = usePaymentAccountStore((s) => s.paymentAccounts);
 
-  const sellerGroups = useMemo(() => {
-    const sellerProfiles = useSellerStore.getState().profiles;
-    const getConfig = (sellerId: string): SellerDeliveryConfig => {
-      if (DELIVERY_CONFIG[sellerId]) return DELIVERY_CONFIG[sellerId];
-      const profile = sellerProfiles.find((p) => p.userId === sellerId && p.status === 'approved');
-      if (profile) {
-        return {
-          districtFees: profile.districtFees ?? {},
-          freeDeliveryMin: profile.freeDeliveryMin ?? null,
-          weightFeeBrackets: profile.weightFeeBrackets ?? [],
-          volumeFeeBrackets: profile.volumeFeeBrackets ?? [],
-          quantityFeeBrackets: profile.quantityFeeBrackets ?? [],
-        };
-      }
-      return { districtFees: {}, freeDeliveryMin: null, weightFeeBrackets: [], volumeFeeBrackets: [], quantityFeeBrackets: [] };
-    };
-
-    const map = new Map<string, typeof checkedItems>();
-    for (const item of checkedItems) {
-      const existing = map.get(item.product.sellerId);
-      if (existing) existing.push(item);
-      else map.set(item.product.sellerId, [item]);
-    }
-    return Array.from(map.entries()).map(([sellerId, items]) => ({
-      sellerId,
-      items,
-      seller: sellers.find((s) => s.id === sellerId)!,
-      config: getConfig(sellerId),
-    }));
-  }, [checkedItems, sellers]);
+  const deliveryOrPickupMethod = deliveryMethod ?? (profile.deliveryAvailable ? 'delivery' : 'pickup');
 
   const orderSummary = useMemo(() => {
-    return sellerGroups.map(({ sellerId, seller, items, config }) => {
-      const method = deliveryMethod[sellerId] ?? (seller.deliveryAvailable ? 'delivery' : 'pickup');
-      const subtotal = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
-      const fee = calculateDeliveryFee(
-        config,
-        method === 'delivery' ? deliveryDistrict : null,
-        items.map((i) => ({ productId: i.product.id, quantity: i.quantity, weight: i.product.weight, volume: i.product.volume })),
-        subtotal,
-      );
-      return { sellerId, sellerName: seller.name, subtotal, fee, total: subtotal + fee };
-    });
-  }, [sellerGroups, deliveryMethod, deliveryDistrict]);
+    const subtotal = checkedItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
+    const fee = calculateDeliveryFee(
+      profile,
+      deliveryOrPickupMethod === 'delivery' ? deliveryDistrict : null,
+      checkedItems.map((i) => ({ productId: i.product.id, quantity: i.quantity, weight: i.product.weight, volume: i.product.volume })),
+      subtotal,
+    );
+    return { subtotal, fee, total: subtotal + fee };
+  }, [checkedItems, profile, deliveryOrPickupMethod, deliveryDistrict]);
 
-  const grandTotal = useMemo(() => orderSummary.reduce((s, g) => s + g.total, 0), [orderSummary]);
+  const grandTotal = orderSummary.total;
   const allItemsCount = useMemo(() => checkedItems.reduce((s, i) => s + i.quantity, 0), [checkedItems]);
 
   const selectedAccount = paymentAccounts.find((a) => a.id === selectedAccountId);
@@ -193,23 +159,20 @@ const PaymentPage: React.FC = () => {
     const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
     const orderId = `ORD-${dateStr}-${rand}`;
 
-    const items = sellerGroups.flatMap(({ sellerId, seller, items }) => {
-      const method = deliveryMethod[sellerId] ?? (seller.deliveryAvailable ? 'delivery' : 'pickup');
-      return items.map((item) => ({
-        productId: item.product.id,
-        productName: item.product.name,
-        productImage: item.product.image,
-        price: item.product.price,
-        mrp: item.product.mrp,
-        quantity: item.quantity,
-        unit: item.product.unit,
-        sellerId,
-        sellerName: seller.name,
-        deliveryMethod: method,
-        deliveryFee: orderSummary.find((g) => g.sellerId === sellerId)?.fee ?? 0,
-        status: paymentMethod === 'payment_slip' ? 'pending' as const : 'confirmed' as const,
-      }));
-    });
+    const items = checkedItems.map((item) => ({
+      productId: item.product.id,
+      productName: item.product.name,
+      productImage: item.product.image,
+      price: item.product.price,
+      mrp: item.product.mrp,
+      quantity: item.quantity,
+      unit: item.product.unit,
+      sellerId: profile.id,
+      sellerName: profile.storeName || 'Our Store',
+      deliveryMethod: deliveryOrPickupMethod,
+      deliveryFee: orderSummary.fee,
+      status: paymentMethod === 'payment_slip' ? 'pending' as const : 'confirmed' as const,
+    }));
 
     const paymentStatus = paymentMethod === 'bank' || paymentMethod === 'card' ? 'paid' as const
       : paymentMethod === 'cod' ? 'pending' as const
@@ -299,7 +262,7 @@ const PaymentPage: React.FC = () => {
                     📦
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{allItemsCount} {allItemsCount === 1 ? 'item' : 'items'} from {sellerGroups.length} {sellerGroups.length === 1 ? 'seller' : 'sellers'}</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{allItemsCount} {allItemsCount === 1 ? 'item' : 'items'} from {profile.storeName || 'Our Store'}</div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       Deliver to: {deliveryAddress ? deliveryAddress.split(',')[0] : 'Address set in checkout'}
                     </div>
@@ -440,28 +403,26 @@ const PaymentPage: React.FC = () => {
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '18px' }}>Order Summary</h3>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {orderSummary.map((group) => (
-                      <div key={group.sellerId} style={{
-                        paddingBottom: '10px',
-                        borderBottom: '1px solid var(--border-color)',
-                      }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                          {group.sellerName}
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                          <span>Subtotal</span>
-                          <span>${group.subtotal.toFixed(2)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: group.fee === 0 ? 'var(--accent)' : 'var(--text-muted)', fontWeight: group.fee === 0 ? 600 : 400 }}>
-                          <span>Delivery</span>
-                          <span>{group.fee === 0 ? 'Free' : `$${group.fee.toFixed(2)}`}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
-                          <span>Total</span>
-                          <span>${group.total.toFixed(2)}</span>
-                        </div>
+                    <div style={{
+                      paddingBottom: '10px',
+                      borderBottom: '1px solid var(--border-color)',
+                    }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {profile.storeName || 'Our Store'}
                       </div>
-                    ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        <span>Subtotal</span>
+                        <span>${orderSummary.subtotal.toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: orderSummary.fee === 0 ? 'var(--accent)' : 'var(--text-muted)', fontWeight: orderSummary.fee === 0 ? 600 : 400 }}>
+                        <span>Delivery</span>
+                        <span>{orderSummary.fee === 0 ? 'Free' : `$${orderSummary.fee.toFixed(2)}`}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                        <span>Total</span>
+                        <span>${orderSummary.total.toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div style={{

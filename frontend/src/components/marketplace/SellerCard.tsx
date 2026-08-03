@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Star, Package, Clock } from 'lucide-react';
-import type { Seller } from '../../types/marketplace.type';
+import { Star, Package } from 'lucide-react';
+import type { SellerProfile } from '../../types/seller.type';
 
 const AVATAR_COLORS = [
   '#0060e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -25,18 +25,19 @@ function getAvatarColor(sellerId: string): string {
 }
 
 interface SellerCardProps {
-  seller: Seller;
+  seller: SellerProfile;
 }
 
 export const SellerCard: React.FC<SellerCardProps> = ({ seller }) => {
   const navigate = useNavigate();
+  const storeName = seller.storeName || 'Our Store';
   const color = getAvatarColor(seller.id);
 
   return (
     <div
       className="premium-card"
       style={{ padding: '20px', cursor: 'pointer', transition: 'var(--transition-fast)' }}
-      onClick={() => navigate(`/store/${seller.id}`)}
+      onClick={() => navigate('/store')}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--hover-shadow)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--card-shadow)'; }}
     >
@@ -56,12 +57,12 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller }) => {
             flexShrink: 0,
           }}
         >
-          {getInitials(seller.name)}
+          {getInitials(storeName)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {seller.name}
+              {storeName}
             </h4>
             <span style={{
               fontSize: '0.8rem',
@@ -88,13 +89,6 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller }) => {
               <Package size={14} />
               <span>{seller.totalSales.toLocaleString()} sales</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              <Clock size={14} />
-              <span>Response: {seller.responseTime}</span>
-            </div>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Member since {seller.memberSince}
-            </span>
           </div>
         </div>
       </div>
