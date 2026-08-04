@@ -10,6 +10,7 @@ from app.config import settings
 from app.database import init_db
 from app.routes.auth import router as auth_router
 from app.routes.marketplace import router as marketplace_router
+from app.routes.pickup import router as pickup_router
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     # Routers
     app.include_router(auth_router)
     app.include_router(marketplace_router)
+    app.include_router(pickup_router)
 
     # Serve uploaded item resources (images/videos referenced by pos_item_resources.resource_path).
     # UPLOADS_DIR may point at the external POS application's own uploads root (see UPLOADS_DIR
