@@ -4,6 +4,7 @@ import type { Order, SellerPayoutStatus } from '../types/marketplace.type';
 import { useSellerStore } from '../stores/seller.store';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { SellerPaymentCard } from '../components/seller/SellerPaymentCard';
+import { formatCurrency } from '../utils/currency';
 
 const PAYOUT_TABS: Array<{ key: SellerPayoutStatus | 'all'; label: string }> = [
   { key: 'all', label: 'All' },
@@ -107,7 +108,7 @@ const SellerPayments: React.FC = () => {
                 Total Received
               </div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#16a34a', lineHeight: 1.3 }}>
-                ${stats.paidAmount.toFixed(2)}
+                {formatCurrency(stats.paidAmount)}
               </div>
             </div>
           </div>
@@ -130,7 +131,7 @@ const SellerPayments: React.FC = () => {
                 Pending Payout
               </div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#d97706', lineHeight: 1.3 }}>
-                ${stats.pendingAmount.toFixed(2)}
+                {formatCurrency(stats.pendingAmount)}
               </div>
             </div>
           </div>

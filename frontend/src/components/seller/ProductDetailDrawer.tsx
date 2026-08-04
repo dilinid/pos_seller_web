@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSellerStore } from '../../stores/seller.store';
 import { ProductStatusBadge } from './ProductStatusBadge';
 import type { ProductDraft } from '../../types/product-draft.type';
+import { formatCurrency } from '../../utils/currency';
 
 interface ProductDetailDrawerProps {
   draft: ProductDraft;
@@ -162,7 +163,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
                       className="pos-value-btn"
                       style={!canEditInline ? { cursor: 'default', opacity: 0.7 } : {}}
                     >
-                      ${draft.price.toFixed(2)}
+                      {formatCurrency(draft.price)}
                     </button>
                   )}
                 </div>
@@ -186,7 +187,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
                       className="pos-value-btn"
                       style={!canEditInline ? { cursor: 'default', opacity: 0.7 } : {}}
                     >
-                      {draft.mrp != null ? `$${draft.mrp.toFixed(2)}` : '—'}
+                      {draft.mrp != null ? formatCurrency(draft.mrp) : '—'}
                     </button>
                   )}
                 </div>
@@ -295,7 +296,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
               {freeDeliveryMin != null && (
                 <div>
                   <span className="pos-info-label">Free Delivery Minimum</span>
-                  <span className="pos-info-value">${freeDeliveryMin.toFixed(2)}</span>
+                  <span className="pos-info-value">{formatCurrency(freeDeliveryMin)}</span>
                 </div>
               )}
               {draft.weight != null && (
@@ -323,7 +324,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
                 <div className="prod-district-table" style={{ margin: 0 }}>
                   <div className="prod-district-header">
                     <span>District</span>
-                    <span>Fee ($)</span>
+                    <span>Fee (Rs.)</span>
                   </div>
                   {districtFeeEntries.map(([district, fee]) => (
                     <div key={district} className="prod-district-row">

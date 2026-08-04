@@ -390,7 +390,7 @@ const SellerAddProduct: React.FC = () => {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Price ($) *</label>
+              <label className="form-label">Price (Rs.) *</label>
               <input
                 type="number" step="0.01" min="0" className="form-input"
                 value={price} onChange={(e) => setPrice(e.target.value)}
@@ -398,7 +398,7 @@ const SellerAddProduct: React.FC = () => {
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">MRP ($) <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.72rem' }}>Original price</span></label>
+              <label className="form-label">MRP (Rs.) <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.72rem' }}>Original price</span></label>
               <input
                 type="number" step="0.01" min="0" className="form-input"
                 value={mrp} onChange={(e) => setMrp(e.target.value)}

@@ -174,7 +174,7 @@ const SellerSettings: React.FC = () => {
             </h3>
 
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label className="form-label">Free Delivery Minimum ($)</label>
+              <label className="form-label">Free Delivery Minimum (Rs.)</label>
               <input
                 type="number" step="0.01" min="0" className="form-input"
                 value={freeDeliveryMin}

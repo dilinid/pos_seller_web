@@ -19,9 +19,6 @@ export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
 export const PAYMENT_STATUS_META: Record<PaymentStatus, StatusMeta> = {
   pending: { label: 'Pending', color: '#f59e0b', bg: '#fffbeb' },
   paid: { label: 'Paid', color: '#10b981', bg: '#ecfdf5' },
-  awaiting_receipt: { label: 'Awaiting Receipt', color: '#f59e0b', bg: '#fffbeb' },
-  receipt_uploaded: { label: 'Receipt Uploaded', color: '#3b82f6', bg: '#eff6ff' },
-  verified: { label: 'Verified', color: '#10b981', bg: '#ecfdf5' },
 };
 
 export const PAYOUT_STATUS_META: Record<SellerPayoutStatus, StatusMeta> = {

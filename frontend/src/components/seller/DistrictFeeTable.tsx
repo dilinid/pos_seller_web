@@ -1,4 +1,5 @@
 import { DISTRICTS } from '../../data/districts';
+import { formatCurrency } from '../../utils/currency';
 
 interface DistrictFeeTableProps {
   districtFees: Record<string, number>;
@@ -16,7 +17,7 @@ export const DistrictFeeTable: React.FC<DistrictFeeTableProps> = ({ districtFees
     <div className="prod-district-table">
       <div className="prod-district-header">
         <span>District</span>
-        <span>Delivery Fee ($)</span>
+        <span>Delivery Fee (Rs.)</span>
       </div>
       {DISTRICTS.map((d) => (
         <div key={d.id} className="prod-district-row">
@@ -24,7 +25,7 @@ export const DistrictFeeTable: React.FC<DistrictFeeTableProps> = ({ districtFees
           {disabled ? (
             <span className="prod-district-fee">
               {districtFees[d.id] != null && districtFees[d.id] > 0
-                ? `$${districtFees[d.id].toFixed(2)}`
+                ? formatCurrency(districtFees[d.id])
                 : '—'}
             </span>
           ) : (

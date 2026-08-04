@@ -11,6 +11,7 @@ import { SellerOrderStatus } from './SellerOrderStatus';
 import { DeliveryTracker } from './DeliveryTracker';
 import { ReviewForm } from './ReviewForm';
 import { MutualReviewStatus } from './MutualReviewStatus';
+import { formatCurrency } from '../../utils/currency';
 
 interface OrderSellerGroupProps {
   seller: SellerProfile;
@@ -121,7 +122,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatCurrency(item.price * item.quantity)}
                     </span>
                     <OrderStatusBadge status={item.status} />
                   </div>
@@ -283,7 +284,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
             <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
               Subtotal ({items.length} item{items.length > 1 ? 's' : ''})
             </span>
-            <span>${(subtotal + totalDeliveryFee).toFixed(2)}</span>
+            <span>{formatCurrency(subtotal + totalDeliveryFee)}</span>
           </div>
         </div>
       )}

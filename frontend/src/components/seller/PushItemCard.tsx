@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Clock, Package, MapPin } from 'lucide-react';
 import type { PushItem } from '../../types/push-item.type';
+import { formatCurrency } from '../../utils/currency';
 
 interface PushItemCardProps {
   item: PushItem;
@@ -119,7 +120,7 @@ export const PushItemCard: React.FC<PushItemCardProps> = ({ item, onPriceChange,
                   />
                 ) : (
                   <button onClick={(e) => { e.stopPropagation(); setPriceDraft(String(item.price)); setEditingPrice(true); }} className="pos-value-btn">
-                    ${item.price.toFixed(2)}
+                    {formatCurrency(item.price)}
                   </button>
                 )}
                 </div>
@@ -139,7 +140,7 @@ export const PushItemCard: React.FC<PushItemCardProps> = ({ item, onPriceChange,
                     />
                   ) : (
                     <button onClick={(e) => { e.stopPropagation(); setMrpDraft(item.mrp != null ? String(item.mrp) : ''); setEditingMrp(true); }} className="pos-value-btn">
-                      {item.mrp != null ? `$${item.mrp.toFixed(2)}` : '—'}
+                      {item.mrp != null ? formatCurrency(item.mrp) : '—'}
                     </button>
                   )}
                 </div>

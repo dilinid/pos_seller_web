@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import type { PushItem } from '../../types/push-item.type';
+import { formatCurrency } from '../../utils/currency';
 
 interface PushItemDetailDrawerProps {
   item: PushItem;
@@ -154,7 +155,7 @@ export const PushItemDetailDrawer: React.FC<PushItemDetailDrawerProps> = ({
                       className="pos-value-btn"
                       style={published ? { cursor: 'default', opacity: 0.7 } : {}}
                     >
-                      ${item.price.toFixed(2)}
+                      {formatCurrency(item.price)}
                     </button>
                   )}
                 </div>
@@ -179,7 +180,7 @@ export const PushItemDetailDrawer: React.FC<PushItemDetailDrawerProps> = ({
                       className="pos-value-btn"
                       style={published ? { cursor: 'default', opacity: 0.7 } : {}}
                     >
-                      {item.mrp != null ? `$${item.mrp.toFixed(2)}` : '—'}
+                      {item.mrp != null ? formatCurrency(item.mrp) : '—'}
                     </button>
                   )}
                 </div>

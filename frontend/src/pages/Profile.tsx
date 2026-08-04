@@ -1,17 +1,11 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { useProfile } from '../hooks/useProfile';
-import { usePaymentAccountStore } from '../stores/payment-account.store';
-import { AddPaymentAccountModal } from '../components/marketplace/AddPaymentAccountModal';
-import { CODSection } from '../components/marketplace/CODSection';
 import { ProfileHeader } from './profile/ProfileHeader';
-import { ProfileTabs } from './profile/ProfileTabs';
 import { PersonalInfoSection } from './profile/PersonalInfoSection';
-import { PaymentAccountsSection } from './profile/PaymentAccountsSection';
-import type { ProfileTab } from './profile/profile.types';
+import { CODSection } from '../components/marketplace/CODSection';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useCODStore } from '../stores/cod.store';
 
@@ -23,15 +17,9 @@ const Profile: React.FC = () => {
     handleChanges, handleProfileImageChange, handleProfileImageClick, handleProfileSave,
   } = useProfile();
 
-  const paymentAccounts = usePaymentAccountStore((s) => s.paymentAccounts);
-  const removePaymentAccount = usePaymentAccountStore((s) => s.removePaymentAccount);
-
   const orders = useMarketplaceStore((s) => s.orders);
   const codState = useCODStore((s) => s.request);
   const requestCOD = useCODStore((s) => s.requestCOD);
-
-  const [activeTab, setActiveTab] = useState<ProfileTab>('personal');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   return (
     <div style={{
@@ -74,51 +62,36 @@ const Profile: React.FC = () => {
             memberId={user?.memberId}
           />
 
-          <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <PersonalInfoSection
+            name={profile.name}
+            phone={profile.phone}
+            email={profile.email}
+            address={profile.address || ''}
+            gender={profile.gender || ''}
+            districtId={profile.district?.id || ''}
+            dsDivisionId={profile.dsDivision?.id || ''}
+            gnDivisionId={profile.gnDivision?.id || ''}
+            userDistrict={user?.district}
+            userDsDivision={user?.dsDivision}
+            userGnDivision={user?.gnDivision}
+            districts={districts}
+            dsDivisions={dsDivisions}
+            gnDivisions={gnDivisions}
+            loading={loading}
+            saveLoading={saveLoading}
+            saveSuccess={saveSuccess}
+            onChange={handleChanges}
+            onSave={handleProfileSave}
+          />
 
-          {activeTab === 'personal' && (
-            <PersonalInfoSection
-              name={profile.name}
-              phone={profile.phone}
-              email={profile.email}
-              address={profile.address || ''}
-              gender={profile.gender || ''}
-              districtId={profile.district?.id || ''}
-              dsDivisionId={profile.dsDivision?.id || ''}
-              gnDivisionId={profile.gnDivision?.id || ''}
-              userDistrict={user?.district}
-              userDsDivision={user?.dsDivision}
-              userGnDivision={user?.gnDivision}
-              districts={districts}
-              dsDivisions={dsDivisions}
-              gnDivisions={gnDivisions}
-              loading={loading}
-              saveLoading={saveLoading}
-              saveSuccess={saveSuccess}
-              onChange={handleChanges}
-              onSave={handleProfileSave}
-            />
-          )}
-
-          {activeTab === 'payments' && (
-            <>
-              <PaymentAccountsSection
-                accounts={paymentAccounts}
-                onRemove={removePaymentAccount}
-                onAdd={() => setShowAddModal(true)}
-              />
-              <CODSection
-                user={user}
-                orders={orders}
-                codState={codState}
-                onRequestCOD={requestCOD}
-              />
-            </>
-          )}
+          <CODSection
+            user={user}
+            orders={orders}
+            codState={codState}
+            onRequestCOD={requestCOD}
+          />
         </main>
       </div>
-
-      <AddPaymentAccountModal open={showAddModal} onClose={() => setShowAddModal(false)} />
     </div>
   );
 };

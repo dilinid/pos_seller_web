@@ -1,4 +1,5 @@
 import type { FeeBracket } from '../../types/seller.type';
+import { formatCurrency } from '../../utils/currency';
 
 interface FeeBracketEditorProps {
   title: string;
@@ -53,7 +54,7 @@ export const FeeBracketEditor: React.FC<FeeBracketEditorProps> = ({
             <span>Label</span>
             <span>From ({unit})</span>
             <span>To ({unit})</span>
-            <span>Fee ($)</span>
+            <span>Fee (Rs.)</span>
             {!disabled && <span></span>}
           </div>
           {safe.map((b, i) => (
@@ -94,7 +95,7 @@ export const FeeBracketEditor: React.FC<FeeBracketEditorProps> = ({
                 />
               )}
               {disabled ? (
-                <span className="prod-district-fee">${b.fee.toFixed(2)}</span>
+                <span className="prod-district-fee">{formatCurrency(b.fee)}</span>
               ) : (
                 <input
                   type="number" step="0.01" min="0"

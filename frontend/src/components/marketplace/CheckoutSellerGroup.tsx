@@ -5,6 +5,7 @@ import { SellerBadge } from './SellerBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { ProductImage } from '../ui/ProductImage';
 import { calculateDeliveryFee } from '../../utils/delivery.utils';
+import { formatCurrency } from '../../utils/currency';
 
 interface CheckoutSellerGroupProps {
   seller: SellerProfile;
@@ -87,7 +88,7 @@ export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
               </span>
             </div>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-              ${(item.product.price * item.quantity).toFixed(2)}
+              {formatCurrency(item.product.price * item.quantity)}
             </span>
           </div>
         ))}
@@ -118,12 +119,12 @@ export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
               {deliveryFee === 0 ? (
                 <strong style={{ color: 'var(--accent)' }}>Free Delivery</strong>
               ) : (
-                <>Delivery fee: <strong style={{ color: 'var(--text-primary)' }}>${deliveryFee.toFixed(2)}</strong></>
+                <>Delivery fee: <strong style={{ color: 'var(--text-primary)' }}>{formatCurrency(deliveryFee)}</strong></>
               )}
             </span>
             {seller.freeDeliveryMin !== null && deliveryFee > 0 && (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Free delivery on orders over ${seller.freeDeliveryMin.toFixed(2)}
+                Free delivery on orders over {formatCurrency(seller.freeDeliveryMin)}
               </div>
             )}
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -142,7 +143,7 @@ export const CheckoutSellerGroup: React.FC<CheckoutSellerGroupProps> = ({
           <Package size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
           Subtotal
         </span>
-        <span>${(subtotal + (deliveryMethod === 'delivery' ? deliveryFee : 0)).toFixed(2)}</span>
+        <span>{formatCurrency(subtotal + (deliveryMethod === 'delivery' ? deliveryFee : 0))}</span>
       </div>
     </div>
   );
