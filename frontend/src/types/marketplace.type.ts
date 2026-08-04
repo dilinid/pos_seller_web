@@ -47,11 +47,11 @@ export interface CartItem {
   checked: boolean;
 }
 
-export type PaymentMethodType = 'bank' | 'cod' | 'card' | 'payment_slip';
+export type PaymentMethodType = 'card' | 'cod';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
 
-export type PaymentStatus = 'pending' | 'paid' | 'awaiting_receipt' | 'receipt_uploaded' | 'verified';
+export type PaymentStatus = 'pending' | 'paid';
 
 export type SellerPayoutStatus = 'pending' | 'processing' | 'paid' | 'on_hold';
 

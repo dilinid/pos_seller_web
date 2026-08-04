@@ -3,6 +3,7 @@ import { Package, Wallet, Calendar } from 'lucide-react';
 import type { Order, SellerPayoutStatus } from '../../types/marketplace.type';
 import { SellerPayoutBadge } from './SellerPayoutBadge';
 import { ProductImage } from '../ui/ProductImage';
+import { formatCurrency } from '../../utils/currency';
 
 interface SellerPaymentCardProps {
   order: Order;
@@ -111,7 +112,7 @@ export const SellerPaymentCard: React.FC<SellerPaymentCardProps> = ({ order, sel
           </span>
         </div>
         <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', flexShrink: 0 }}>
-          ${payoutAmount.toFixed(2)}
+          {formatCurrency(payoutAmount)}
         </div>
       </div>
 

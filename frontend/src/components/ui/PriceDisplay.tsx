@@ -1,13 +1,11 @@
+import { formatCurrency } from '../../utils/currency';
+
 interface PriceDisplayProps {
   price: number;
   mrp?: number | null;
   size?: 'sm' | 'md' | 'lg';
   showSavings?: boolean;
   showDiscountBadge?: boolean;
-}
-
-function formatPrice(val: number): string {
-  return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function calcDiscount(mrp: number, price: number): number {
@@ -33,7 +31,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   if (!safeMrp) {
     return (
       <span style={{ fontSize: s.price, fontWeight: 700, color: 'var(--text-primary)' }}>
-        ${formatPrice(price)}
+        {formatCurrency(price)}
       </span>
     );
   }
@@ -52,7 +50,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
             lineHeight: 1.2,
           }}
         >
-          ${formatPrice(price)}
+          {formatCurrency(price)}
         </span>
         <span
           style={{
@@ -63,7 +61,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
             lineHeight: 1.2,
           }}
         >
-          ${formatPrice(safeMrp)}
+          {formatCurrency(safeMrp)}
         </span>
         {showDiscountBadge && discount > 0 && (
           <span
@@ -91,7 +89,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
             lineHeight: 1.2,
           }}
         >
-          You save ${formatPrice(savings)}
+          You save {formatCurrency(savings)}
         </span>
       )}
     </div>

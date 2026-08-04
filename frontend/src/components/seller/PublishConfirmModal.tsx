@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import type { PushItem } from '../../types/push-item.type';
+import { formatCurrency } from '../../utils/currency';
 
 interface PublishConfirmModalProps {
   item: PushItem;
@@ -89,11 +90,11 @@ export const PublishConfirmModal: React.FC<PublishConfirmModalProps> = ({ item, 
           }}>
             <div>
               <span style={{ color: 'var(--text-muted)' }}>Price</span>
-              <div style={{ fontWeight: 600 }}>${item.price.toFixed(2)}</div>
+              <div style={{ fontWeight: 600 }}>{formatCurrency(item.price)}</div>
             </div>
             <div>
               <span style={{ color: 'var(--text-muted)' }}>MRP</span>
-              <div style={{ fontWeight: 600 }}>{item.mrp != null ? `$${item.mrp.toFixed(2)}` : '—'}</div>
+              <div style={{ fontWeight: 600 }}>{item.mrp != null ? formatCurrency(item.mrp) : '—'}</div>
             </div>
             <div>
               <span style={{ color: 'var(--text-muted)' }}>Quantity</span>

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Package, ClipboardList, DollarSign, Star, PlusCircle, User, BarChart3 } from 'lucide-react';
 import { useSellerStore } from '../stores/seller.store';
+import { formatCurrency } from '../utils/currency';
 
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ const SellerDashboard: React.FC = () => {
   const STATS = [
     { icon: Package, value: profile.productCount, label: 'Products', color: 'var(--primary)', bg: 'var(--primary-light)' },
     { icon: ClipboardList, value: 0, label: 'Orders', color: 'var(--accent)', bg: 'var(--accent-light)' },
-    { icon: DollarSign, value: '$0', label: 'Revenue', color: 'var(--warning)', bg: '#fffbeb' },
+    { icon: DollarSign, value: formatCurrency(0), label: 'Revenue', color: 'var(--warning)', bg: '#fffbeb' },
     { icon: Star, value: profile.rating, label: 'Rating', color: '#f59e0b', bg: '#fffbeb' },
   ];
 

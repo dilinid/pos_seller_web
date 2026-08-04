@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, CreditCard, Banknote, Receipt, Star } from 'lucide-react';
+import { ShoppingBag, CreditCard, Banknote, Star } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { OrderStatusBadge } from '../components/marketplace/OrderStatusBadge';
 import { ProductImage } from '../components/ui/ProductImage';
+import { formatCurrency } from '../utils/currency';
 import type { OrderStatus } from '../types/marketplace.type';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
@@ -20,17 +21,13 @@ const STATUS_TABS: { label: string; value: OrderStatus | 'all' }[] = [
 ];
 
 const PAYMENT_ICONS: Record<string, React.ReactNode> = {
-  bank: <CreditCard size={12} />,
   card: <CreditCard size={12} />,
   cod: <Banknote size={12} />,
-  payment_slip: <Receipt size={12} />,
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
-  bank: 'Bank Transfer',
   card: 'Credit / Debit Card',
   cod: 'Cash on Delivery',
-  payment_slip: 'Payment Slip',
 };
 
 const OrdersPage: React.FC = () => {
@@ -124,9 +121,8 @@ const OrdersPage: React.FC = () => {
                     return currentIdx < latestIdx ? item.status : latest;
                   }, order.items[0]?.status ?? 'pending');
 
-                  const needsPaymentSlip = order.paymentMethod === 'payment_slip' && order.paymentStatus === 'awaiting_receipt';
                   const needsPickup = order.items.some((i) => i.deliveryMethod === 'pickup' && i.status === 'delivered');
-                  const actionType = needsPaymentSlip ? 'payment_slip' : needsPickup ? 'pickup' : null;
+                  const actionType = needsPickup ? 'pickup' : null;
 
                   return (
                     <div
@@ -154,18 +150,6 @@ const OrdersPage: React.FC = () => {
                           </div>
                           <OrderStatusBadge status={latestItemStatus} />
                         </div>
-
-                        {actionType === 'payment_slip' && (
-                          <div style={{
-                            padding: '8px 12px', borderRadius: '8px', marginBottom: '10px',
-                            background: '#fffbeb', border: '1px solid #fde68a',
-                            display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: 600,
-                            color: '#92400e',
-                          }}>
-                            <span style={{ fontSize: '0.85rem' }}>📄</span>
-                            Upload payment receipt
-                          </div>
-                        )}
 
                         {actionType === 'pickup' && (
                           <div style={{
@@ -222,7 +206,7 @@ const OrdersPage: React.FC = () => {
                           </span>
                         </div>
                         <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          ${order.grandTotal.toFixed(2)}
+                          {formatCurrency(order.grandTotal)}
                         </span>
                       </div>
                     </div>

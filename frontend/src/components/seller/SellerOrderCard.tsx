@@ -3,6 +3,7 @@ import { Package, ChevronRight, MapPin, Store } from 'lucide-react';
 import type { Order } from '../../types/marketplace.type';
 import { OrderStatusBadge } from '../marketplace/OrderStatusBadge';
 import { ProductImage } from '../ui/ProductImage';
+import { formatCurrency } from '../../utils/currency';
 
 interface SellerOrderCardProps {
   order: Order;
@@ -91,7 +92,7 @@ export const SellerOrderCard: React.FC<SellerOrderCardProps> = ({ order, sellerI
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-              ${(sellerTotal + sellerDeliveryFee).toFixed(2)}
+              {formatCurrency(sellerTotal + sellerDeliveryFee)}
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
               {sellerItems.reduce((s, i) => s + i.quantity, 0)} item{sellerItems.length > 1 ? 's' : ''}

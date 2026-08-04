@@ -4,6 +4,7 @@ import { useMarketplaceStore } from '../../stores/marketplace.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { ProductImage } from '../ui/ProductImage';
+import { formatCurrency } from '../../utils/currency';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -262,7 +263,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                 Selected Total ({checkedCount} {checkedCount === 1 ? 'item' : 'items'})
               </span>
               <span style={{ color: 'var(--primary)' }}>
-                ${checkedTotal.toFixed(2)}
+                {formatCurrency(checkedTotal)}
               </span>
             </div>
             <button

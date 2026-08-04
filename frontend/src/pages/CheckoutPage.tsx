@@ -4,6 +4,7 @@ import { ArrowRight, FileText, ShoppingBag } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useSellerStore } from '../stores/seller.store';
 import { calculateDeliveryFee } from '../utils/delivery.utils';
+import { formatCurrency } from '../utils/currency';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { CheckoutDeliveryAddress } from '../components/marketplace/CheckoutDeliveryAddress';
@@ -107,11 +108,11 @@ const CheckoutPage: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                       <span>Subtotal</span>
-                      <span>${orderSummary.subtotal.toFixed(2)}</span>
+                      <span>{formatCurrency(orderSummary.subtotal)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: orderSummary.fee === 0 ? 'var(--accent)' : 'var(--text-muted)', fontWeight: orderSummary.fee === 0 ? 600 : 400 }}>
                       <span>Delivery</span>
-                      <span>{orderSummary.fee === 0 ? 'Free' : `$${orderSummary.fee.toFixed(2)}`}</span>
+                      <span>{orderSummary.fee === 0 ? 'Free' : formatCurrency(orderSummary.fee)}</span>
                     </div>
                   </div>
 
@@ -121,7 +122,7 @@ const CheckoutPage: React.FC = () => {
                   }}>
                     <span style={{ fontSize: '1.05rem', fontWeight: 700 }}>Grand Total</span>
                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                      ${grandTotal.toFixed(2)}
+                      {formatCurrency(grandTotal)}
                     </span>
                   </div>
 

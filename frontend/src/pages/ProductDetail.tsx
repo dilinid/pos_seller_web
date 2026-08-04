@@ -13,6 +13,7 @@ import { CartDrawer } from '../components/marketplace/CartDrawer';
 import { useAuthStore } from '../stores/auth.store';
 import { PriceDisplay } from '../components/ui/PriceDisplay';
 import { StarRating } from '../components/ui/StarRating';
+import { formatCurrency } from '../utils/currency';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -239,7 +240,7 @@ const ProductDetail: React.FC = () => {
                     gap: '6px',
                   }}>
                     <Check size={14} />
-                    {cartQuantity} in cart — <strong>${(product.price * cartQuantity).toFixed(2)}</strong>
+                    {cartQuantity} in cart — <strong>{formatCurrency(product.price * cartQuantity)}</strong>
                   </div>
                 )}
 

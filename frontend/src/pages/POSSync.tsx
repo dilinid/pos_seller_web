@@ -8,6 +8,7 @@ import { PushItemDetailDrawer } from '../components/seller/PushItemDetailDrawer'
 import { PublishConfirmModal } from '../components/seller/PublishConfirmModal';
 import type { PushItem } from '../types/push-item.type';
 import type { Product } from '../types/marketplace.type';
+import { formatCurrency } from '../utils/currency';
 
 const POSSync: React.FC = () => {
   const user = useAuthStore((s) => s.user);
@@ -235,8 +236,8 @@ const POSSync: React.FC = () => {
                           <span className="pos-item-badge pos-badge-published">Published</span>
                         </div>
                         <div className="pos-item-meta" style={{ marginTop: '8px' }}>
-                          <span>${item.price.toFixed(2)}</span>
-                          {item.mrp != null && <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through', fontSize: '0.78rem' }}>${item.mrp.toFixed(2)}</span>}
+                          <span>{formatCurrency(item.price)}</span>
+                          {item.mrp != null && <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through', fontSize: '0.78rem' }}>{formatCurrency(item.mrp)}</span>}
                           <span>Qty: {item.quantity}</span>
                           {item.reorderLevel != null && <span>Reorder: {item.reorderLevel}</span>}
                           <span>
