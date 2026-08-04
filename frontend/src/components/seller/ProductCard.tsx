@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSellerStore } from '../../stores/seller.store';
 import { ProductStatusBadge } from './ProductStatusBadge';
 import type { ProductDraft } from '../../types/product-draft.type';
+import { formatCurrency } from '../../utils/currency';
 
 interface ProductCardProps {
   draft: ProductDraft;
@@ -140,7 +141,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       onClick={(e) => { e.stopPropagation(); setPriceDraft(String(draft.price)); setEditingPrice(true); }}
                       className="pos-value-btn"
                     >
-                      ${draft.price.toFixed(2)}
+                      {formatCurrency(draft.price)}
                     </button>
                   )}
                 </div>
@@ -163,7 +164,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       onClick={(e) => { e.stopPropagation(); setMrpDraft(draft.mrp != null ? String(draft.mrp) : ''); setEditingMrp(true); }}
                       className="pos-value-btn"
                     >
-                      {draft.mrp != null ? `$${draft.mrp.toFixed(2)}` : '—'}
+                      {draft.mrp != null ? formatCurrency(draft.mrp) : '—'}
                     </button>
                   )}
                 </div>
@@ -219,8 +220,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {!canEditInline && (
             <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              <span>${draft.price.toFixed(2)}</span>
-              {draft.mrp != null && <span style={{ color: 'var(--text-muted)', fontWeight: 500, textDecoration: 'line-through' }}>${draft.mrp.toFixed(2)}</span>}
+              <span>{formatCurrency(draft.price)}</span>
+              {draft.mrp != null && <span style={{ color: 'var(--text-muted)', fontWeight: 500, textDecoration: 'line-through' }}>{formatCurrency(draft.mrp)}</span>}
               <span>Qty: {draft.quantity}</span>
               {draft.reorderLevel != null && <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Reorder: {draft.reorderLevel}</span>}
             </div>

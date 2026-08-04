@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { CODRequest } from '../types/cod.type';
 import type { Order } from '../types/marketplace.type';
 import type { UserProfile } from '../types/profile.type';
+import { formatCurrency } from '../utils/currency';
 
 interface CODStoreState {
   request: CODRequest;
@@ -73,9 +74,9 @@ export function checkCODEligibility(user: UserProfile | null, orders: Order[]): 
   const spentMet = totalSpent >= 200;
   criteria.push({
     key: 'total_spent',
-    label: 'At least $200 total spent',
+    label: `At least ${formatCurrency(200)} total spent`,
     met: spentMet,
-    detail: `$${totalSpent.toFixed(2)} spent`,
+    detail: `${formatCurrency(totalSpent)} spent`,
   });
 
   const phoneMet = Boolean(user?.phone);

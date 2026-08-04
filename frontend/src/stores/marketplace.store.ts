@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
 import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
-import { SELLERS } from '../data/sellers';
 import { fetchMarketplaceProducts, fetchMarketplaceCategories } from '../apis/marketplace.api';
 
 interface MarketplaceStoreState {
@@ -40,9 +39,7 @@ interface MarketplaceStoreState {
   resetCheckout: () => void;
 
   paymentMethod: PaymentMethodType;
-  selectedAccountId: string | null;
   setPaymentMethod: (method: PaymentMethodType) => void;
-  setSelectedAccountId: (accountId: string | null) => void;
 
   directBuyItem: { product: Product; quantity: number } | null;
   setDirectBuyItem: (item: { product: Product; quantity: number } | null) => void;
@@ -70,8 +67,7 @@ const CHECKOUT_INIT = {
   deliveryDistrict: 'dist-colombo',
   deliveryMethod: null as 'delivery' | 'pickup' | null,
   orderNotes: '',
-  paymentMethod: 'bank' as PaymentMethodType,
-  selectedAccountId: null as string | null,
+  paymentMethod: 'card' as PaymentMethodType,
   directBuyItem: null as { product: Product; quantity: number } | null,
 };
 
@@ -180,8 +176,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       setOrderNotes: (notes) => set({ orderNotes: notes }),
       resetCheckout: () => set({ ...CHECKOUT_INIT }),
 
-      setPaymentMethod: (method) => set({ paymentMethod: method, selectedAccountId: method === 'bank' ? null : null }),
-      setSelectedAccountId: (accountId) => set({ selectedAccountId: accountId }),
+      setPaymentMethod: (method) => set({ paymentMethod: method }),
       setDirectBuyItem: (item) => set({ directBuyItem: item }),
 
       addOrder: (order) => set({ orders: [order, ...get().orders] }),
@@ -308,7 +303,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               id: 'ORD-DEMO-002', createdAt: ago(1.2), updatedAt: ago(0.8),
               buyerName: 'Amaya Silva', buyerEmail: 'amaya@example.com',
               deliveryAddress: '123 Temple Road, Kandy', deliveryDistrict: 'dist-kandy',
-              orderNotes: '', paymentMethod: 'bank', paymentStatus: 'paid',
+              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 28.50, estimatedDelivery: '3-5 business days',
               items: [
                 item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 2, 'confirmed', { unit: '12 Pack' }),
@@ -340,7 +335,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               id: 'ORD-DEMO-005', createdAt: ago(5), updatedAt: ago(3),
               buyerName: 'Priya Kumar', buyerEmail: 'priya@example.com',
               deliveryAddress: '22 Beach Road, Galle', deliveryDistrict: 'dist-galle',
-              orderNotes: 'Ring the bell twice', paymentMethod: 'payment_slip', paymentStatus: 'awaiting_receipt',
+              orderNotes: 'Ring the bell twice', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 18.99, estimatedDelivery: '3-5 business days',
               items: [
                 item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 2, 'shipped', { unit: '1 Loaf (800g)', mrp: 8.99, trackingCarrier: 'UPS', trackingNumber: '1Z999AA10123456784' }),
@@ -350,7 +345,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               id: 'ORD-DEMO-006', createdAt: ago(7), updatedAt: ago(6),
               buyerName: 'Dinesh Rathnayake', buyerEmail: 'dinesh@example.com',
               deliveryAddress: '100 Hill Street, Badulla', deliveryDistrict: 'dist-badulla',
-              orderNotes: '', paymentMethod: 'bank', paymentStatus: 'verified',
+              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 52.50, estimatedDelivery: '3-5 business days',
               items: [
                 item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 2, 'delivered', { unit: '1L Bottle', mrp: 14.99, sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-001', sellerPayoutDate: '2026-07-15' }),
@@ -370,7 +365,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               id: 'ORD-DEMO-008', createdAt: hoursAgo(2), updatedAt: hoursAgo(1),
               buyerName: 'Tharindu Wickramasinghe', buyerEmail: 'tharindu@example.com',
               deliveryAddress: '15 Lake Crescent, Kandy', deliveryDistrict: 'dist-kandy',
-              orderNotes: 'Leave with neighbor if not home', paymentMethod: 'bank', paymentStatus: 'paid',
+              orderNotes: 'Leave with neighbor if not home', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 58.95, estimatedDelivery: '3-5 business days',
               items: [
                 item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 3, 'processing', { unit: '1L Carton', mrp: 5.49 }),
@@ -406,7 +401,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               id: 'ORD-DEMO-011', createdAt: hoursAgo(6), updatedAt: hoursAgo(5),
               buyerName: 'Sachini Mendis', buyerEmail: 'sachini@example.com',
               deliveryAddress: '12 Park Street, Colombo 05', deliveryDistrict: 'dist-colombo',
-              orderNotes: '', paymentMethod: 'payment_slip', paymentStatus: 'paid',
+              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 15.50, estimatedDelivery: '3-5 business days',
               items: [
                 item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'pending', { unit: '12 Pack' }),
@@ -438,7 +433,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               id: 'ORD-DEMO-014', createdAt: ago(8), updatedAt: ago(7.5),
               buyerName: 'Dilani Gunawardena', buyerEmail: 'dilani@example.com',
               deliveryAddress: '44 Lotus Road, Colombo 04', deliveryDistrict: 'dist-colombo',
-              orderNotes: '', paymentMethod: 'bank', paymentStatus: 'verified',
+              orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 35.48, estimatedDelivery: '3-5 business days',
               items: [
                 item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 1, 'cancelled', { unit: '1L Carton', mrp: 5.49 }),

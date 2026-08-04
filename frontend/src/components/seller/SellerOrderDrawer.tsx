@@ -8,6 +8,7 @@ import { SellerOrderTimeline } from './SellerOrderTimeline';
 import { SellerOrderStatusActions } from './SellerOrderStatusActions';
 import { SellerRatingForm } from '../marketplace/SellerRatingForm';
 import { MutualReviewStatus } from '../marketplace/MutualReviewStatus';
+import { formatCurrency } from '../../utils/currency';
 
 interface SellerOrderDrawerProps {
   order: Order;
@@ -188,11 +189,11 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                    ${(item.price * item.quantity).toFixed(2)}
+                    {formatCurrency(item.price * item.quantity)}
                   </div>
                   {item.mrp != null && (
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                      ${item.mrp.toFixed(2)}
+                      {formatCurrency(item.mrp)}
                     </div>
                   )}
                 </div>
@@ -205,15 +206,15 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
-                <span>${sellerSubtotal.toFixed(2)}</span>
+                <span>{formatCurrency(sellerSubtotal)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Delivery Fee</span>
-                <span>{deliveryMethod === 'pickup' ? '—' : `$${sellerDeliveryFee.toFixed(2)}`}</span>
+                <span>{deliveryMethod === 'pickup' ? '—' : formatCurrency(sellerDeliveryFee)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
                 <span>Your Total</span>
-                <span>${sellerTotal.toFixed(2)}</span>
+                <span>{formatCurrency(sellerTotal)}</span>
               </div>
             </div>
           </div>

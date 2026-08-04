@@ -1,14 +1,14 @@
 import { useMemo, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, MapPin, CreditCard } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, MapPin, CreditCard, Banknote } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
 import { PaymentStatusBadge } from '../components/marketplace/OrderStatusBadge';
 import { OrderSellerGroup } from '../components/marketplace/OrderSellerGroup';
-import { PaymentSlipUpload } from '../components/marketplace/PaymentSlipUpload';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
+import { formatCurrency } from '../utils/currency';
 import type { UserReview } from '../types/marketplace.type';
 
 const OrderDetailPage: React.FC = () => {
@@ -63,10 +63,6 @@ const OrderDetailPage: React.FC = () => {
     if (order) {
       startReviewPeriod(order.id, sellerId, userId);
     }
-  };
-
-  const handleSlipUpload = (file: File) => {
-    console.log(`[PaymentSlipUpload] Order ${orderId}:`, file.name);
   };
 
   if (!order) {
@@ -131,22 +127,6 @@ const OrderDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {order.paymentMethod === 'payment_slip' && order.paymentStatus === 'awaiting_receipt' && (
-              <div className="od-banner" style={{ marginBottom: '16px' }}>
-                <div style={{
-                  padding: '12px 16px', borderRadius: '10px',
-                  background: '#fffbeb', border: '1px solid #fde68a',
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  fontSize: '0.82rem', color: '#92400e', fontWeight: 500,
-                }}>
-                  <span style={{ fontSize: '1.1rem' }}>📄</span>
-                  <div>
-                    <strong>Payment receipt required</strong> — Upload your payment receipt to complete this order.
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="od-grid">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <OrderSellerGroup
@@ -178,13 +158,8 @@ const OrderDetailPage: React.FC = () => {
                 <div className="premium-card" style={{ padding: '16px', background: '#fff' }}>
                   <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '10px' }}>Payment</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    <CreditCard size={15} />
-                    <span>
-                      {order.paymentMethod === 'bank' ? 'Bank Transfer'
-                        : order.paymentMethod === 'card' ? 'Credit / Debit Card'
-                        : order.paymentMethod === 'cod' ? 'Cash on Delivery'
-                        : 'Payment Slip'}
-                    </span>
+                    {order.paymentMethod === 'cod' ? <Banknote size={15} /> : <CreditCard size={15} />}
+                    <span>{order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Credit / Debit Card'}</span>
                   </div>
                   <div style={{ marginTop: '6px' }}>
                     <PaymentStatusBadge status={order.paymentStatus} />
@@ -196,16 +171,16 @@ const OrderDetailPage: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Item total</span>
-                      <span style={{ fontWeight: 600 }}>${itemTotal.toFixed(2)}</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency(itemTotal)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Delivery total</span>
-                      <span style={{ fontWeight: 600 }}>${deliveryTotal.toFixed(2)}</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency(deliveryTotal)}</span>
                     </div>
                     <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ fontWeight: 700 }}>Total</span>
                       <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1rem' }}>
-                        ${order.grandTotal.toFixed(2)}
+                        {formatCurrency(order.grandTotal)}
                       </span>
                     </div>
                   </div>
@@ -215,16 +190,6 @@ const OrderDetailPage: React.FC = () => {
                   <div className="premium-card" style={{ padding: '16px', background: '#fff' }}>
                     <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>Order Notes</h3>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>{order.orderNotes}</p>
-                  </div>
-                )}
-
-                {order.paymentMethod === 'payment_slip' && (
-                  <div className="premium-card" style={{ padding: '16px', background: '#fff' }}>
-                    <PaymentSlipUpload
-                      orderId={order.id}
-                      currentStatus={order.paymentStatus}
-                      onUpload={handleSlipUpload}
-                    />
                   </div>
                 )}
               </div>
