@@ -14,13 +14,12 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.it_user_master import ITUserMaster
-from app.models.pos_customer import PosCustomer
 from app.models.pos_itemlots import PosItemLots
 from app.models.pos_itempick import PosItemPick
 from app.models.pos_orddtl import PosOrdDtl
 from app.models.pos_ordhed import OrderStatus, PosOrdHed
-from app.models.pos_setup import PosSetup
 from app.routes.auth import get_current_user
+from app.seller_utils import get_customer_name, get_store_id, short_user_code
 
 router = APIRouter(prefix="/api/seller/pickup-list", tags=["pickup"])
 
@@ -75,11 +74,6 @@ class ConfirmPickRequest(BaseModel):
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
-def _store_id(session: Session) -> Optional[str]:
-    setup = session.exec(select(PosSetup)).first()
-    return setup.setup_storeid if setup else None
-
-
 def _get_order_or_404(session: Session, ord_no: str) -> PosOrdHed:
     order = session.get(PosOrdHed, ord_no)
     if not order or order.cancel:
@@ -96,13 +90,6 @@ def _latest_pick(session: Session, ord_no: str) -> Optional[PosItemPick]:
     return session.exec(stmt).first()
 
 
-def _customer_name(session: Session, member: Optional[str]) -> str:
-    if not member:
-        return "Walk-in Customer"
-    customer = session.exec(select(PosCustomer).where(PosCustomer.cus_code == member)).first()
-    return (customer.cus_name if customer and customer.cus_name else member)
-
-
 def _to_order_out(session: Session, order: PosOrdHed) -> PickupOrderOut:
     lines = session.exec(
         select(PosOrdDtl).where(PosOrdDtl.OrdNo == order.OrdNo, PosOrdDtl.cancel != True)  # noqa: E712
@@ -112,7 +99,7 @@ def _to_order_out(session: Session, order: PosOrdHed) -> PickupOrderOut:
     return PickupOrderOut(
         orderNo=order.OrdNo,
         orderDate=order.created_at.isoformat() if order.created_at else None,
-        customer=_customer_name(session, order.member),
+        customer=get_customer_name(session, order.member),
         totalItems=len(lines),
         status="Confirmed" if (pick and pick.itempick_confirm) else "Pending",
         pickNo=f"PK-{pick.itempick_id:04d}" if pick else "",
@@ -157,7 +144,7 @@ def list_pickup_orders(
     session: Session = Depends(get_session),
     current_user: ITUserMaster = Depends(get_current_user),
 ):
-    store_id = _store_id(session)
+    store_id = get_store_id(session)
     stmt = select(PosOrdHed).where(PosOrdHed.status.in_(ACTIVE_STATUSES)).where(
         PosOrdHed.cancel != True  # noqa: E712
     )
@@ -189,7 +176,7 @@ def print_pickup_order(
     the Pick #); reprinting an already-printed, unconfirmed order is idempotent."""
     order = _get_order_or_404(session, ord_no)
     now = datetime.utcnow()
-    user_code = str(current_user.id)[:10] if current_user.id is not None else None
+    user_code = short_user_code(current_user)
 
     pick = _latest_pick(session, ord_no)
     if not pick:
@@ -235,7 +222,7 @@ def update_pickup_remarks(
 
     pick.itempick_Remark = body.remarks
     pick.itempick_mddate = datetime.utcnow()
-    pick.itempick_mdby = str(current_user.id)[:10] if current_user.id is not None else None
+    pick.itempick_mdby = short_user_code(current_user)
     session.add(pick)
     session.commit()
 
@@ -260,7 +247,7 @@ def confirm_pickup_order(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This pick has already been confirmed")
 
     now = datetime.utcnow()
-    user_code = str(current_user.id)[:10] if current_user.id is not None else None
+    user_code = short_user_code(current_user)
 
     lines_by_no = {
         line.lineno: line

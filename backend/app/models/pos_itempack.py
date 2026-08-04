@@ -9,9 +9,9 @@ from sqlmodel import Field, SQLModel
 class PosItemPack(SQLModel, table=True):
     __tablename__ = "pos_itempack"
 
-    itempack_id: int = Field(primary_key=True, nullable=False)
-    itempack_ordno: str = Field(max_length=7, nullable=False)
-    itempack_loc: Optional[str] = Field(default=None, max_length=10)
+    itempack_id: Optional[int] = Field(default=None, primary_key=True)
+    itempack_ordno: str = Field(max_length=7, nullable=False, index=True)
+    itempack_loc: Optional[str] = Field(default=None, max_length=10, index=True)
     itempack_mddate: Optional[datetime] = Field(default=None)
     itempack_user: Optional[str] = Field(default=None, max_length=10)
     itempack_refno: Optional[str] = Field(default=None, max_length=10)
