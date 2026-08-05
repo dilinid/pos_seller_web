@@ -32,3 +32,5 @@ class PosItemLots(SQLModel, table=True):
     itemlots_uom: Optional[str] = Field(default=None, max_length=5)
     itemlots_avgcost: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
     itemlots_casesize: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
+    itemlots_reserve: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
+    itemlots_pick: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))

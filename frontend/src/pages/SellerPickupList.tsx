@@ -1,56 +1,15 @@
-import { useMemo, useState } from 'react';
-import { ShoppingCart, Printer, Pencil, Eye } from 'lucide-react';
-import { useAuthStore } from '../stores/auth.store';
-
-interface PickupOrder {
-  pickNo: string;
-  orderNo: string;
-  orderDate: string;
-  customer: string;
-  totalItems: number;
-  status: 'Pending' | 'Confirmed';
-  remarks: string;
-}
-
-interface PickupItem {
-  code: string;
-  name: string;
-  location: string;
-  qtyOrdered: number;
-}
-
-const INITIAL_ORDERS: PickupOrder[] = [
-  { pickNo: 'PK-0001', orderNo: 'ORD-2025-000124', orderDate: '26/07/2025 10:15 AM', customer: 'Nimal Perera', totalItems: 3, status: 'Pending', remarks: '' },
-  { pickNo: 'PK-0002', orderNo: 'ORD-2025-000125', orderDate: '26/07/2025 10:20 AM', customer: 'Kavindu Silva', totalItems: 2, status: 'Pending', remarks: '' },
-  { pickNo: 'PK-0003', orderNo: 'ORD-2025-000126', orderDate: '26/07/2025 11:00 AM', customer: 'Tharushi Abey.', totalItems: 4, status: 'Pending', remarks: '' },
-  { pickNo: 'PK-0004', orderNo: 'ORD-2025-000127', orderDate: '26/07/2025 11:30 AM', customer: 'Danushka Bandara', totalItems: 1, status: 'Pending', remarks: '' },
-  { pickNo: 'PK-0005', orderNo: 'ORD-2025-000128', orderDate: '26/07/2025 12:10 PM', customer: 'Sanduni Fernando', totalItems: 2, status: 'Pending', remarks: '' },
-];
-
-const ITEMS_BY_PICK: Record<string, PickupItem[]> = {
-  'PK-0001': [
-    { code: 'HP1001', name: 'Wireless Headphone', location: 'A-01-02', qtyOrdered: 1 },
-    { code: 'SW2001', name: 'Smart Watch', location: 'A-02-03', qtyOrdered: 1 },
-    { code: 'BS3001', name: 'Bluetooth Speaker', location: 'B-01-04', qtyOrdered: 1 },
-  ],
-  'PK-0002': [
-    { code: 'TS4002', name: 'Cotton T-Shirt (L)', location: 'C-03-01', qtyOrdered: 1 },
-    { code: 'SN5003', name: 'Running Sneakers', location: 'C-04-02', qtyOrdered: 1 },
-  ],
-  'PK-0003': [
-    { code: 'LP6001', name: 'Laptop Stand', location: 'A-05-01', qtyOrdered: 1 },
-    { code: 'MS6002', name: 'Wireless Mouse', location: 'A-05-02', qtyOrdered: 2 },
-    { code: 'KB6003', name: 'Mechanical Keyboard', location: 'A-05-03', qtyOrdered: 1 },
-    { code: 'HD6004', name: 'HDMI Cable 2m', location: 'A-06-01', qtyOrdered: 1 },
-  ],
-  'PK-0004': [
-    { code: 'PB7001', name: 'Power Bank 10000mAh', location: 'B-02-01', qtyOrdered: 1 },
-  ],
-  'PK-0005': [
-    { code: 'BE8001', name: 'Bluetooth Earbuds', location: 'B-02-02', qtyOrdered: 1 },
-    { code: 'PC8002', name: 'Phone Case', location: 'B-03-01', qtyOrdered: 1 },
-  ],
-};
+import { useEffect, useMemo, useState } from 'react';
+import { ShoppingCart, Printer, Pencil, Eye, Loader2 } from 'lucide-react';
+import {
+  fetchPickupList,
+  fetchPickupDetail,
+  printPickupOrder,
+  updatePickupRemarks,
+  confirmPickupOrder,
+  type PickupOrder,
+  type PickupItem,
+} from '../apis/pickup.api';
+import { fetchStaff, type StaffMember } from '../apis/staff.api';
 
 const STATUS_STYLES: Record<PickupOrder['status'], { bg: string; color: string }> = {
   Pending: { bg: '#fef3c7', color: '#d97706' },
@@ -77,14 +36,21 @@ const tdStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+function formatOrderDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 function printPickupRecord(order: PickupOrder, items: PickupItem[]) {
   const rowsHtml = items
     .map(
       (item, index) => `
         <tr>
           <td>${index + 1}</td>
-          <td>${item.code}</td>
-          <td>${item.name}</td>
+          <td>${item.itemCode}</td>
+          <td>${item.itemName}</td>
           <td>${item.location}</td>
           <td>${item.qtyOrdered}</td>
         </tr>
@@ -108,9 +74,10 @@ function printPickupRecord(order: PickupOrder, items: PickupItem[]) {
         <h2>Pick Up List — ${order.pickNo}</h2>
         <p>
           <strong>Order No:</strong> ${order.orderNo}<br/>
-          <strong>Order Date:</strong> ${order.orderDate}<br/>
+          <strong>Order Date:</strong> ${formatOrderDate(order.orderDate)}<br/>
           <strong>Customer:</strong> ${order.customer}<br/>
           <strong>Status:</strong> ${order.status}
+          ${order.picker ? `<br/><strong>Picked By:</strong> ${order.picker}` : ''}
           ${order.remarks ? `<br/><strong>Remarks:</strong> ${order.remarks}` : ''}
         </p>
         <table>
@@ -132,68 +99,161 @@ function printPickupRecord(order: PickupOrder, items: PickupItem[]) {
 }
 
 const SellerPickupList: React.FC = () => {
-  const user = useAuthStore((s) => s.user);
-  const [orders, setOrders] = useState<PickupOrder[]>(INITIAL_ORDERS);
-  const [selectedPickNo, setSelectedPickNo] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'edit' | 'view' | null>(null);
-  const [qtyToPick, setQtyToPick] = useState<Record<string, number>>({});
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+  const [orders, setOrders] = useState<PickupOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [remarksDraft, setRemarksDraft] = useState<Record<string, string>>({});
+  const [printingOrderNo, setPrintingOrderNo] = useState<string | null>(null);
 
-  const items = useMemo(() => (selectedPickNo ? ITEMS_BY_PICK[selectedPickNo] ?? [] : []), [selectedPickNo]);
-  const selectedOrder = orders.find((o) => o.pickNo === selectedPickNo);
-  const allChecked = items.length > 0 && items.every((i) => checkedItems[i.code]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [pickerId, setPickerId] = useState<number | ''>('');
+
+  const [selectedOrderNo, setSelectedOrderNo] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'edit' | 'view' | null>(null);
+  const [items, setItems] = useState<PickupItem[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [qtyToPick, setQtyToPick] = useState<Record<number, number>>({});
+  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
+  const [confirmSubmitting, setConfirmSubmitting] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const selectedOrder = orders.find((o) => o.orderNo === selectedOrderNo);
+  const allChecked = items.length > 0 && items.every((i) => checkedItems[i.lineno]);
   const isEditing = viewMode === 'edit';
+
+  const loadOrders = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await fetchPickupList();
+      setOrders(data);
+      setRemarksDraft(Object.fromEntries(data.map((o) => [o.orderNo, o.remarks])));
+    } catch {
+      setLoadError('Failed to load the pick up list. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrders();
+    fetchStaff().then(setStaff).catch(() => setStaff([]));
+  }, []);
+
+  const applyOrderUpdate = (updated: PickupOrder) => {
+    setOrders((prev) => prev.map((o) => (o.orderNo === updated.orderNo ? updated : o)));
+    setRemarksDraft((prev) => ({ ...prev, [updated.orderNo]: updated.remarks }));
+  };
+
+  const handlePrint = async (order: PickupOrder) => {
+    if (pickerId === '') {
+      alert('Select a picker before printing.');
+      return;
+    }
+    setPrintingOrderNo(order.orderNo);
+    try {
+      const detail = await printPickupOrder(order.orderNo, pickerId);
+      applyOrderUpdate(detail.order);
+      printPickupRecord(detail.order, detail.items);
+    } catch {
+      alert('Failed to print this pick up record. Please try again.');
+    } finally {
+      setPrintingOrderNo(null);
+    }
+  };
+
+  const openOrder = async (order: PickupOrder, mode: 'edit' | 'view') => {
+    setSelectedOrderNo(order.orderNo);
+    setViewMode(mode);
+    setQtyToPick({});
+    setCheckedItems({});
+    setConfirmError(null);
+    setDetailLoading(true);
+    try {
+      const detail = await fetchPickupDetail(order.orderNo);
+      setItems(detail.items);
+      setQtyToPick(
+        Object.fromEntries(detail.items.map((i) => [i.lineno, i.qtyPicked ?? i.qtyOrdered])),
+      );
+    } catch {
+      setItems([]);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleEdit = (order: PickupOrder) => {
     if (order.status === 'Confirmed') return;
-    setSelectedPickNo(order.pickNo);
-    setViewMode('edit');
-    setQtyToPick({});
-    setCheckedItems({});
+    openOrder(order, 'edit');
   };
 
   const handleView = (order: PickupOrder) => {
-    setSelectedPickNo(order.pickNo);
-    setViewMode('view');
-    setQtyToPick({});
-    setCheckedItems({});
+    openOrder(order, 'view');
   };
 
   const handleClose = () => {
-    setSelectedPickNo(null);
+    setSelectedOrderNo(null);
     setViewMode(null);
+    setItems([]);
     setQtyToPick({});
     setCheckedItems({});
+    setConfirmError(null);
   };
 
-  const handleQtyChange = (code: string, value: number, max: number) => {
+  const handleQtyChange = (lineno: number, value: number, max: number) => {
     const clamped = Number.isNaN(value) ? 0 : Math.max(0, Math.min(value, max));
-    setQtyToPick((prev) => ({ ...prev, [code]: clamped }));
+    setQtyToPick((prev) => ({ ...prev, [lineno]: clamped }));
   };
 
-  const toggleItem = (code: string) => {
-    setCheckedItems((prev) => ({ ...prev, [code]: !prev[code] }));
+  const toggleItem = (lineno: number) => {
+    setCheckedItems((prev) => ({ ...prev, [lineno]: !prev[lineno] }));
   };
 
   const toggleAll = () => {
     const next = !allChecked;
-    const updated: Record<string, boolean> = {};
+    const updated: Record<number, boolean> = {};
     items.forEach((i) => {
-      updated[i.code] = next;
+      updated[i.lineno] = next;
     });
     setCheckedItems(updated);
   };
 
-  const handleConfirmPicked = () => {
-    if (!selectedPickNo) return;
-    setOrders((prev) =>
-      prev.map((o) => (o.pickNo === selectedPickNo ? { ...o, status: 'Confirmed' } : o)),
-    );
-    handleClose();
+  const handleConfirmPicked = async () => {
+    if (!selectedOrderNo) return;
+    setConfirmSubmitting(true);
+    setConfirmError(null);
+    try {
+      const payloadItems = items.map((i) => ({
+        lineno: i.lineno,
+        qtyPicked: qtyToPick[i.lineno] ?? i.qtyOrdered,
+      }));
+      const detail = await confirmPickupOrder(selectedOrderNo, payloadItems, remarksDraft[selectedOrderNo]);
+      applyOrderUpdate(detail.order);
+      handleClose();
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        'Failed to confirm this pick up. Please try again.';
+      setConfirmError(message);
+    } finally {
+      setConfirmSubmitting(false);
+    }
   };
 
-  const handleRemarksChange = (pickNo: string, value: string) => {
-    setOrders((prev) => prev.map((o) => (o.pickNo === pickNo ? { ...o, remarks: value } : o)));
+  const handleRemarksChange = (orderNo: string, value: string) => {
+    setRemarksDraft((prev) => ({ ...prev, [orderNo]: value }));
+  };
+
+  const handleRemarksBlur = async (order: PickupOrder) => {
+    if (!order.pickNo) return; // no pos_itempick row yet — nothing to persist to
+    const value = remarksDraft[order.orderNo] ?? '';
+    if (value === order.remarks) return;
+    try {
+      const updated = await updatePickupRemarks(order.orderNo, value);
+      applyOrderUpdate(updated);
+    } catch {
+      setRemarksDraft((prev) => ({ ...prev, [order.orderNo]: order.remarks }));
+    }
   };
 
   const today = new Date().toLocaleDateString('en-GB');
@@ -223,12 +283,39 @@ const SellerPickupList: React.FC = () => {
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Pick Up List</h3>
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            <div><strong>Date:</strong> {today}</div>
-            <div><strong>Picker:</strong> {user?.name || 'Unassigned'}</div>
+            <div style={{ marginBottom: '6px' }}><strong>Date:</strong> {today}</div>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+              <strong>Picker:</strong>
+              <select
+                value={pickerId}
+                onChange={(e) => setPickerId(e.target.value ? Number(e.target.value) : '')}
+                className="form-input"
+                style={{ padding: '4px 8px', fontSize: '0.82rem' }}
+              >
+                <option value="">Select picker…</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto', marginBottom: selectedPickNo ? '28px' : 0 }}>
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Loading pick up list…
+          </div>
+        ) : loadError ? (
+          <div style={{ padding: '32px', textAlign: 'center' }}>
+            <p style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '12px' }}>{loadError}</p>
+            <button type="button" onClick={loadOrders} className="btn btn-primary">Retry</button>
+          </div>
+        ) : orders.length === 0 ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            No orders currently need picking.
+          </div>
+        ) : (
+        <div style={{ overflowX: 'auto', marginBottom: selectedOrderNo ? '28px' : 0 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -245,17 +332,20 @@ const SellerPickupList: React.FC = () => {
             </thead>
             <tbody>
               {orders.map((order) => {
-                const isSelected = order.pickNo === selectedPickNo;
+                const isSelected = order.orderNo === selectedOrderNo;
                 const statusStyle = STATUS_STYLES[order.status];
                 const isConfirmed = order.status === 'Confirmed';
+                const isPrinting = printingOrderNo === order.orderNo;
                 return (
                   <tr
-                    key={order.pickNo}
+                    key={order.orderNo}
                     style={{ background: isSelected ? 'var(--primary-light)' : 'transparent' }}
                   >
-                    <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{order.pickNo}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>
+                      {order.pickNo || <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>}
+                    </td>
                     <td style={tdStyle}>{order.orderNo}</td>
-                    <td style={tdStyle}>{order.orderDate}</td>
+                    <td style={tdStyle}>{formatOrderDate(order.orderDate)}</td>
                     <td style={tdStyle}>{order.customer}</td>
                     <td style={tdStyle}>{order.totalItems}</td>
                     <td style={tdStyle}>
@@ -270,22 +360,31 @@ const SellerPickupList: React.FC = () => {
                     <td style={tdStyle}>
                       <button
                         type="button"
-                        onClick={() => printPickupRecord(order, ITEMS_BY_PICK[order.pickNo] ?? [])}
-                        title="Print this pick up record"
+                        onClick={() => handlePrint(order)}
+                        disabled={isPrinting || pickerId === ''}
+                        title={
+                          pickerId === ''
+                            ? 'Select a picker first'
+                            : order.pickNo ? 'Reprint this pick up record' : 'Print this pick up record'
+                        }
                         style={{
                           background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px',
-                          padding: '5px 7px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex',
+                          padding: '5px 7px', cursor: isPrinting ? 'wait' : pickerId === '' ? 'not-allowed' : 'pointer',
+                          color: 'var(--text-secondary)', display: 'inline-flex',
+                          opacity: pickerId === '' ? 0.5 : 1,
                         }}
                       >
-                        <Printer size={14} />
+                        {isPrinting ? <Loader2 size={14} className="spin" /> : <Printer size={14} />}
                       </button>
                     </td>
                     <td style={{ ...tdStyle, whiteSpace: 'normal' }}>
                       <input
                         type="text"
-                        value={order.remarks}
-                        onChange={(e) => handleRemarksChange(order.pickNo, e.target.value)}
-                        placeholder="Add remarks"
+                        value={remarksDraft[order.orderNo] ?? ''}
+                        onChange={(e) => handleRemarksChange(order.orderNo, e.target.value)}
+                        onBlur={() => handleRemarksBlur(order)}
+                        disabled={!order.pickNo}
+                        placeholder={order.pickNo ? 'Add remarks' : 'Print to add remarks'}
                         className="form-input"
                         style={{ minWidth: '140px', padding: '5px 8px', fontSize: '0.8rem' }}
                       />
@@ -325,9 +424,15 @@ const SellerPickupList: React.FC = () => {
             </tbody>
           </table>
         </div>
+        )}
 
-        {selectedPickNo && selectedOrder && (
+        {selectedOrderNo && selectedOrder && (
           <>
+            {detailLoading ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Loading items…
+              </div>
+            ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -342,25 +447,25 @@ const SellerPickupList: React.FC = () => {
                     <th style={thStyle}>Item Name</th>
                     <th style={thStyle}>Location</th>
                     <th style={thStyle}>Qty Ordered</th>
-                    <th style={thStyle}>Qty to Pick</th>
+                    <th style={thStyle}>{isEditing ? 'Qty to Pick' : 'Qty Picked'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, index) => (
-                    <tr key={item.code}>
+                    <tr key={item.lineno}>
                       {isEditing && (
                         <td style={tdStyle}>
                           <input
                             type="checkbox"
-                            checked={!!checkedItems[item.code]}
-                            onChange={() => toggleItem(item.code)}
+                            checked={!!checkedItems[item.lineno]}
+                            onChange={() => toggleItem(item.lineno)}
                             style={{ accentColor: 'var(--primary)' }}
                           />
                         </td>
                       )}
                       <td style={tdStyle}>{index + 1}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{item.code}</td>
-                      <td style={tdStyle}>{item.name}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{item.itemCode}</td>
+                      <td style={tdStyle}>{item.itemName}</td>
                       <td style={tdStyle}>{item.location}</td>
                       <td style={tdStyle}>{item.qtyOrdered}</td>
                       <td style={tdStyle}>
@@ -369,13 +474,13 @@ const SellerPickupList: React.FC = () => {
                             type="number"
                             min={0}
                             max={item.qtyOrdered}
-                            value={qtyToPick[item.code] ?? item.qtyOrdered}
-                            onChange={(e) => handleQtyChange(item.code, Number(e.target.value), item.qtyOrdered)}
+                            value={qtyToPick[item.lineno] ?? item.qtyOrdered}
+                            onChange={(e) => handleQtyChange(item.lineno, Number(e.target.value), item.qtyOrdered)}
                             className="form-input"
                             style={{ width: '70px', padding: '6px 8px', fontSize: '0.85rem' }}
                           />
                         ) : (
-                          item.qtyOrdered
+                          item.qtyPicked ?? item.qtyOrdered
                         )}
                       </td>
                     </tr>
@@ -390,6 +495,13 @@ const SellerPickupList: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            )}
+
+            {confirmError && (
+              <p style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '12px', textAlign: 'right' }}>
+                {confirmError}
+              </p>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
               {isEditing ? (
@@ -405,9 +517,11 @@ const SellerPickupList: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleConfirmPicked}
+                    disabled={confirmSubmitting || detailLoading}
                     className="btn btn-primary"
+                    style={{ opacity: confirmSubmitting ? 0.6 : 1, cursor: confirmSubmitting ? 'wait' : 'pointer' }}
                   >
-                    Confirm Picked
+                    {confirmSubmitting ? 'Confirming…' : 'Confirm Picked'}
                   </button>
                 </>
               ) : (

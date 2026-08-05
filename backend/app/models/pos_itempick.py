@@ -7,8 +7,8 @@ from sqlmodel import Field, SQLModel
 class PosItemPick(SQLModel, table=True):
     __tablename__ = "pos_itempick"
 
-    itempick_id: int = Field(default=None, primary_key=True)
-    itempick_ordno: str = Field(max_length=7, index=True)
+    itempick_id: Optional[int] = Field(default=None, primary_key=True)
+    itempick_ordno: str = Field(max_length=7, nullable=False, index=True)
     itempick_loc: Optional[str] = Field(default=None, max_length=10, index=True)
     itempick_mddate: Optional[datetime] = Field(default=None)
     itempick_user: Optional[str] = Field(default=None, max_length=10)

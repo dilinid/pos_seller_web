@@ -19,6 +19,7 @@ class PosOrdDtl(SQLModel, table=True):
     storeId: Optional[str] = Field(default=None, max_length=10)
     itemcode: Optional[str] = Field(default=None, max_length=16)
     qty: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
+    pickqty: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
     sprice: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
     avgcost: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
     cprice: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))

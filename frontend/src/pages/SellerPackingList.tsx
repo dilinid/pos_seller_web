@@ -1,128 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PackageCheck, Printer, CheckCircle, ArrowLeft, Pencil, Eye } from 'lucide-react';
+import {
+  fetchPackageTypes,
+  fetchPackingList,
+  fetchPackingDetail,
+  markPacked,
+  updatePackingRemarks,
+  markDelivered,
+  type PackageType,
+  type PackingOrder,
+  type PackingDetail,
+} from '../apis/packing.api';
+import { fetchStaff, type StaffMember } from '../apis/staff.api';
 
-type PackingStatus = 'Pending' |  'Packed & Ready'  | 'Delivered';
-
-interface PackingItem {
-  code: string;
-  name: string;
-  qtyOrdered: number;
-  qtyPicked: number;
-  packed: boolean;
-}
-
-interface PackingRecord {
-  packNo: string;
-  date: string;
-  orderNo: string;
-  customer: string;
-  shippingAddress: string;
-  items: PackingItem[];
-  packageType: string;
-  weight: string;
-  dimensions: string;
-  packedBy: string;
-  notes: string;
-  status: PackingStatus;
-  remarks: string;
-}
-
-const INITIAL_RECORDS: PackingRecord[] = [
-  {
-    packNo: 'PL-0001',
-    date: '26/07/2025 01:15 PM',
-    orderNo: 'ORD-2025-000124',
-    customer: 'Nimal Perera',
-    shippingAddress: 'No. 45, Galle Road, Colombo 03',
-    items: [
-      { code: 'HP1001', name: 'Wireless Headphone', qtyOrdered: 1, qtyPicked: 1, packed: true },
-      { code: 'SW2001', name: 'Smart Watch', qtyOrdered: 1, qtyPicked: 1, packed: true },
-      { code: 'BS3001', name: 'Bluetooth Speaker', qtyOrdered: 1, qtyPicked: 1, packed: true },
-    ],
-    packageType: 'Medium Box',
-    weight: '1.25 kg',
-    dimensions: '25 x 18 x 10 cm',
-    packedBy: 'Saman Perera',
-    notes: 'Thank you for shopping with us!',
-    status: 'Pending',
-    remarks: '',
-  },
-  {
-    packNo: 'PL-0002',
-    date: '26/07/2025 02:05 PM',
-    orderNo: 'ORD-2025-000125',
-    customer: 'Kavindu Silva',
-    shippingAddress: 'No. 12, Kandy Road, Kurunegala',
-    items: [
-      { code: 'TS4002', name: 'Cotton T-Shirt (L)', qtyOrdered: 1, qtyPicked: 1, packed: true },
-      { code: 'SN5003', name: 'Running Sneakers', qtyOrdered: 1, qtyPicked: 1, packed: true },
-    ],
-    packageType: 'Small Box',
-    weight: '0.85 kg',
-    dimensions: '20 x 15 x 10 cm',
-    packedBy: 'Saman Perera',
-    notes: 'Handle with care - fragile item inside.',
-    status: 'Pending',
-    remarks: '',
-  },
-  {
-    packNo: 'PL-0003',
-    date: '26/07/2025 02:40 PM',
-    orderNo: 'ORD-2025-000126',
-    customer: 'Tharushi Abey.',
-    shippingAddress: 'No. 78, Negombo Road, Gampaha',
-    items: [
-      { code: 'LP6001', name: 'Laptop Stand', qtyOrdered: 1, qtyPicked: 1, packed: true },
-      { code: 'MS6002', name: 'Wireless Mouse', qtyOrdered: 2, qtyPicked: 2, packed: true },
-      { code: 'KB6003', name: 'Mechanical Keyboard', qtyOrdered: 1, qtyPicked: 1, packed: true },
-      { code: 'HD6004', name: 'HDMI Cable 2m', qtyOrdered: 1, qtyPicked: 1, packed: true },
-    ],
-    packageType: 'Large Box',
-    weight: '3.40 kg',
-    dimensions: '40 x 30 x 20 cm',
-    packedBy: 'Ruwan Jayasuriya',
-    notes: 'Thank you for shopping with us!',
-    status: 'Pending',
-    remarks: '',
-  },
-  {
-    packNo: 'PL-0004',
-    date: '26/07/2025 03:10 PM',
-    orderNo: 'ORD-2025-000127',
-    customer: 'Danushka Bandara',
-    shippingAddress: 'No. 5, Station Road, Matara',
-    items: [
-      { code: 'PB7001', name: 'Power Bank 10000mAh', qtyOrdered: 1, qtyPicked: 1, packed: true },
-    ],
-    packageType: 'Small Box',
-    weight: '0.45 kg',
-    dimensions: '15 x 12 x 8 cm',
-    packedBy: 'Saman Perera',
-    notes: 'Thank you for shopping with us!',
-    status: 'Pending',
-    remarks: '',
-  },
-  {
-    packNo: 'PL-0005',
-    date: '26/07/2025 03:45 PM',
-    orderNo: 'ORD-2025-000128',
-    customer: 'Sanduni Fernando',
-    shippingAddress: 'No. 23, Temple Lane, Kandy',
-    items: [
-      { code: 'BE8001', name: 'Bluetooth Earbuds', qtyOrdered: 1, qtyPicked: 1, packed: true },
-      { code: 'PC8002', name: 'Phone Case', qtyOrdered: 1, qtyPicked: 1, packed: true },
-    ],
-    packageType: 'Small Box',
-    weight: '0.60 kg',
-    dimensions: '18 x 14 x 8 cm',
-    packedBy: 'Ruwan Jayasuriya',
-    notes: 'Thank you for shopping with us!',
-    status: 'Pending',
-    remarks: '',
-  },
-];
-
-const STATUS_STYLES: Record<PackingStatus, { bg: string; color: string }> = {
+const STATUS_STYLES: Record<PackingOrder['status'], { bg: string; color: string }> = {
   Pending: { bg: '#fef3c7', color: '#d97706' },
   'Packed & Ready': { bg: '#dcfce7', color: '#16a34a' },
   Delivered: { bg: '#dbeafe', color: '#2563eb' },
@@ -147,6 +38,13 @@ const tdStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--border-color)',
 };
 
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 // Deterministic pseudo-barcode bars derived from the pack number, purely decorative.
 function Barcode({ value }: { value: string }) {
   const bars = useMemo(
@@ -168,42 +66,133 @@ function Barcode({ value }: { value: string }) {
 }
 
 const SellerPackingList: React.FC = () => {
-  const [records, setRecords] = useState<PackingRecord[]>(INITIAL_RECORDS);
-  const [selectedPackNo, setSelectedPackNo] = useState<string | null>(null);
+  const [records, setRecords] = useState<PackingOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [remarksDraft, setRemarksDraft] = useState<Record<string, string>>({});
 
-  const record = useMemo(
-    () => records.find((r) => r.packNo === selectedPackNo) ?? null,
-    [records, selectedPackNo],
-  );
+  const [packageTypes, setPackageTypes] = useState<PackageType[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [selectedOrderNo, setSelectedOrderNo] = useState<string | null>(null);
+  const [detail, setDetail] = useState<PackingDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  const handleOpenRecord = (packNo: string) => {
-    setSelectedPackNo(packNo);
+  const [packageTypeId, setPackageTypeId] = useState<number | ''>('');
+  const [packerId, setPackerId] = useState<number | ''>('');
+  const [weightInput, setWeightInput] = useState('');
+  const [packSubmitting, setPackSubmitting] = useState(false);
+  const [packError, setPackError] = useState<string | null>(null);
+  const [deliverSubmitting, setDeliverSubmitting] = useState(false);
+
+  const loadRecords = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await fetchPackingList();
+      setRecords(data);
+      setRemarksDraft(Object.fromEntries(data.map((o) => [o.orderNo, o.remarks])));
+    } catch {
+      setLoadError('Failed to load the packing list. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRecords();
+    fetchPackageTypes().then(setPackageTypes).catch(() => setPackageTypes([]));
+    fetchStaff().then(setStaff).catch(() => setStaff([]));
+  }, []);
+
+  const applyOrderUpdate = (updated: PackingOrder) => {
+    setRecords((prev) => prev.map((o) => (o.orderNo === updated.orderNo ? updated : o)));
+    setRemarksDraft((prev) => ({ ...prev, [updated.orderNo]: updated.remarks }));
+  };
+
+  const handleOpenRecord = async (orderNo: string) => {
+    setSelectedOrderNo(orderNo);
+    setDetailLoading(true);
+    setPackError(null);
+    setPackageTypeId('');
+    setPackerId('');
+    setWeightInput('');
+    try {
+      const data = await fetchPackingDetail(orderNo);
+      setDetail(data);
+    } catch {
+      setDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleBackToList = () => {
-    setSelectedPackNo(null);
+    setSelectedOrderNo(null);
+    setDetail(null);
+    setPackError(null);
   };
 
-  const handleRemarksChange = (packNo: string, value: string) => {
-    setRecords((prev) => prev.map((r) => (r.packNo === packNo ? { ...r, remarks: value } : r)));
+  const handleRemarksChange = (orderNo: string, value: string) => {
+    setRemarksDraft((prev) => ({ ...prev, [orderNo]: value }));
   };
 
-  const handleMarkPacked = () => {
-    if (!selectedPackNo) return;
-    setRecords((prev) =>
-      prev.map((r) => (r.packNo === selectedPackNo ? { ...r, status: 'Packed & Ready' } : r)),
-    );
+  const handleRemarksBlur = async (order: PackingOrder) => {
+    if (!order.packNo) return; // no pos_itempack row yet — nothing to persist to
+    const value = remarksDraft[order.orderNo] ?? '';
+    if (value === order.remarks) return;
+    try {
+      const updated = await updatePackingRemarks(order.orderNo, value);
+      applyOrderUpdate(updated);
+    } catch {
+      setRemarksDraft((prev) => ({ ...prev, [order.orderNo]: order.remarks }));
+    }
   };
 
-  const handlePrint = () => {
-    if (!selectedPackNo) return;
+  const handleMarkPacked = async () => {
+    if (!selectedOrderNo) return;
+    const weight = Number(weightInput);
+    if (packageTypeId === '' || packerId === '' || Number.isNaN(weight) || weight <= 0) {
+      setPackError('Select a package type, a packer, and enter a valid weight.');
+      return;
+    }
+    setPackSubmitting(true);
+    setPackError(null);
+    try {
+      const updated = await markPacked(selectedOrderNo, {
+        packageTypeId: Number(packageTypeId),
+        packerId: Number(packerId),
+        weight,
+        remarks: remarksDraft[selectedOrderNo],
+      });
+      setDetail(updated);
+      applyOrderUpdate(updated.order);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        'Failed to mark this order as packed. Please try again.';
+      setPackError(message);
+    } finally {
+      setPackSubmitting(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!selectedOrderNo || !detail) return;
     window.print();
-    setRecords((prev) =>
-      prev.map((r) => (r.packNo === selectedPackNo ? { ...r, status: 'Delivered' } : r)),
-    );
+    if (detail.order.status !== 'Packed & Ready') return; // already Delivered — just reprint
+    setDeliverSubmitting(true);
+    try {
+      const updated = await markDelivered(selectedOrderNo);
+      setDetail(updated);
+      applyOrderUpdate(updated.order);
+    } catch {
+      // printing already happened; surface nothing further, list will just retain its status
+    } finally {
+      setDeliverSubmitting(false);
+    }
   };
 
-  if (!record) {
+  if (!selectedOrderNo) {
     return (
       <div>
         <div style={{ marginBottom: '20px' }}>
@@ -214,11 +203,25 @@ const SellerPackingList: React.FC = () => {
         </div>
 
         <div className="premium-card" style={{ padding: '24px' }}>
+          {loading ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Loading packing list…
+            </div>
+          ) : loadError ? (
+            <div style={{ padding: '32px', textAlign: 'center' }}>
+              <p style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '12px' }}>{loadError}</p>
+              <button type="button" onClick={loadRecords} className="btn btn-primary">Retry</button>
+            </div>
+          ) : records.length === 0 ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              No confirmed pick ups are waiting to be packed.
+            </div>
+          ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Pack List No</th>
+                  <th style={thStyle}>Pack #</th>
                   <th style={thStyle}>Order No</th>
                   <th style={thStyle}>Date</th>
                   <th style={thStyle}>Customer</th>
@@ -233,12 +236,14 @@ const SellerPackingList: React.FC = () => {
                   const statusStyle = STATUS_STYLES[r.status];
                   const isLocked = r.status !== 'Pending';
                   return (
-                    <tr key={r.packNo}>
-                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{r.packNo}</td>
+                    <tr key={r.orderNo}>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                        {r.packNo || <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>}
+                      </td>
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{r.orderNo}</td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{r.date}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(r.date)}</td>
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{r.customer}</td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{r.items.length}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{r.totalItems}</td>
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                         <span style={{
                           fontSize: '0.72rem', fontWeight: 700, padding: '4px 12px',
@@ -251,9 +256,11 @@ const SellerPackingList: React.FC = () => {
                       <td style={{ ...tdStyle, whiteSpace: 'normal' }}>
                         <input
                           type="text"
-                          value={r.remarks}
-                          onChange={(e) => handleRemarksChange(r.packNo, e.target.value)}
-                          placeholder="Add remarks"
+                          value={remarksDraft[r.orderNo] ?? ''}
+                          onChange={(e) => handleRemarksChange(r.orderNo, e.target.value)}
+                          onBlur={() => handleRemarksBlur(r)}
+                          disabled={!r.packNo}
+                          placeholder={r.packNo ? 'Add remarks' : 'Pack to add remarks'}
                           className="form-input"
                           style={{ minWidth: '140px', padding: '5px 8px', fontSize: '0.8rem' }}
                         />
@@ -262,7 +269,7 @@ const SellerPackingList: React.FC = () => {
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button
                             type="button"
-                            onClick={() => handleOpenRecord(r.packNo)}
+                            onClick={() => handleOpenRecord(r.orderNo)}
                             disabled={isLocked}
                             title={isLocked ? 'Packed & ready records cannot be edited' : 'Edit this packing list'}
                             style={{
@@ -276,7 +283,7 @@ const SellerPackingList: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleOpenRecord(r.packNo)}
+                            onClick={() => handleOpenRecord(r.orderNo)}
                             title="View this packing list"
                             style={{
                               background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px',
@@ -293,12 +300,16 @@ const SellerPackingList: React.FC = () => {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     );
   }
 
-  const canPrint = record.status !== 'Pending';
+  const record = detail?.order;
+  const items = detail?.items ?? [];
+  const isPending = record?.status === 'Pending';
+  const canPrint = !!record && record.status !== 'Pending';
 
   return (
     <div>
@@ -312,6 +323,12 @@ const SellerPackingList: React.FC = () => {
       </button>
 
       <div className="premium-card" style={{ padding: '24px' }}>
+        {detailLoading || !record ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Loading…
+          </div>
+        ) : (
+        <>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
@@ -324,8 +341,8 @@ const SellerPackingList: React.FC = () => {
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Packing List</h3>
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            <div><strong>Pack List No:</strong> {record.packNo}</div>
-            <div><strong>Date:</strong> {record.date}</div>
+            <div><strong>Pack #:</strong> {record.packNo || '—'}</div>
+            <div><strong>Date:</strong> {formatDate(record.date)}</div>
           </div>
         </div>
 
@@ -344,7 +361,7 @@ const SellerPackingList: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Shipping Address</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{record.shippingAddress}</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{record.shippingAddress || '—'}</div>
           </div>
         </div>
 
@@ -361,13 +378,13 @@ const SellerPackingList: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {record.items.map((item, index) => (
-                <tr key={item.code}>
+              {items.map((item, index) => (
+                <tr key={item.lineno}>
                   <td style={tdStyle}>{index + 1}</td>
-                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{item.code}</td>
-                  <td style={tdStyle}>{item.name}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--primary)' }}>{item.itemCode}</td>
+                  <td style={tdStyle}>{item.itemName}</td>
                   <td style={tdStyle}>{item.qtyOrdered}</td>
-                  <td style={tdStyle}>{item.qtyPicked}</td>
+                  <td style={tdStyle}>{item.qtyPicked ?? '—'}</td>
                   <td style={tdStyle}>
                     {item.packed ? (
                       <span style={{
@@ -390,30 +407,82 @@ const SellerPackingList: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '28px' }}>
           <div className="premium-card" style={{ padding: '18px' }}>
             <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 12px' }}>Packaging Details</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '10px', fontSize: '0.85rem' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Package Type</span>
-              <span style={{ fontWeight: 600 }}>{record.packageType}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Weight</span>
-              <span style={{ fontWeight: 600 }}>{record.weight}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Dimensions</span>
-              <span style={{ fontWeight: 600 }}>{record.dimensions}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Packed By</span>
-              <span style={{ fontWeight: 600 }}>{record.packedBy}</span>
-            </div>
+            {isPending ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Package Type
+                  <select
+                    value={packageTypeId}
+                    onChange={(e) => setPackageTypeId(e.target.value ? Number(e.target.value) : '')}
+                    className="form-input"
+                    style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  >
+                    <option value="">Select a package type…</option>
+                    {packageTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.type}
+                        {t.length && t.width && t.height ? ` (${t.length} x ${t.width} x ${t.height} cm)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Packer
+                  <select
+                    value={packerId}
+                    onChange={(e) => setPackerId(e.target.value ? Number(e.target.value) : '')}
+                    className="form-input"
+                    style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  >
+                    <option value="">Select a packer…</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Weight (kg)
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                    className="form-input"
+                    style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: '10px', fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Package Type</span>
+                <span style={{ fontWeight: 600 }}>{record.packageType || '—'}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Weight</span>
+                <span style={{ fontWeight: 600 }}>{record.weight != null ? `${record.weight} kg` : '—'}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Dimensions</span>
+                <span style={{ fontWeight: 600 }}>{record.dimensions || '—'}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Packed By</span>
+                <span style={{ fontWeight: 600 }}>{record.packedBy || '—'}</span>
+              </div>
+            )}
           </div>
 
           <div className="premium-card" style={{ padding: '18px' }}>
             <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 12px' }}>Notes</h4>
-            <p style={{ fontSize: '0.85rem', margin: '0 0 16px' }}>{record.notes}</p>
-            <Barcode value={record.packNo} />
+            <p style={{ fontSize: '0.85rem', margin: '0 0 16px' }}>{record.remarks || 'No remarks added.'}</p>
+            {record.packNo && <Barcode value={record.packNo} />}
           </div>
         </div>
+
+        {packError && (
+          <p style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '12px', textAlign: 'right' }}>{packError}</p>
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
           <button
             type="button"
             onClick={handlePrint}
-            disabled={!canPrint}
+            disabled={!canPrint || deliverSubmitting}
             className="btn"
             style={{
               background: 'var(--primary)', color: '#ffffff',
@@ -422,23 +491,25 @@ const SellerPackingList: React.FC = () => {
             title={canPrint ? 'Print packing list' : 'Mark as packed & ready before printing'}
           >
             <Printer size={16} />
-            Print Packing List
+            {deliverSubmitting ? 'Printing…' : 'Print Packing List'}
           </button>
           <button
             type="button"
             onClick={handleMarkPacked}
-            disabled={record.status !== 'Pending'}
+            disabled={!isPending || packSubmitting}
             className="btn"
             style={{
               background: '#16a34a', color: '#ffffff',
-              opacity: record.status !== 'Pending' ? 0.6 : 1,
-              cursor: record.status !== 'Pending' ? 'not-allowed' : 'pointer',
+              opacity: !isPending || packSubmitting ? 0.6 : 1,
+              cursor: !isPending || packSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
             <CheckCircle size={16} />
-            {record.status === 'Pending' ? 'Mark as Packed & Ready' : 'Packed & Ready ✓'}
+            {isPending ? (packSubmitting ? 'Marking…' : 'Mark as Packed & Ready') : 'Packed & Ready ✓'}
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
