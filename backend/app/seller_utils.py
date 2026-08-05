@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from app.models.it_user_master import ITUserMaster
 from app.models.pos_customer import PosCustomer
 from app.models.pos_setup import PosSetup
+from app.models.pos_staff import PosStaff
 
 
 def get_store_id(session: Session) -> Optional[str]:
@@ -26,13 +27,18 @@ def short_user_code(user: ITUserMaster) -> Optional[str]:
     return str(user.id)[:10] if user.id is not None else None
 
 
-def user_display_name(session: Session, code: Optional[str]) -> Optional[str]:
-    """Best-effort reverse lookup of a short_user_code() back to a friendly name."""
+def staff_code(staff: PosStaff) -> str:
+    """Fits the varchar(10) *_user columns used to record the assigned picker/packer."""
+    return str(staff.id)[:10]
+
+
+def staff_display_name(session: Session, code: Optional[str]) -> Optional[str]:
+    """Best-effort reverse lookup of a staff_code() back to the staff member's name."""
     if not code:
         return None
     try:
-        user_id = int(code)
+        staff_id = int(code)
     except ValueError:
         return code
-    user = session.get(ITUserMaster, user_id)
-    return user.name if user and user.name else code
+    staff = session.get(PosStaff, staff_id)
+    return staff.name if staff and staff.name else code

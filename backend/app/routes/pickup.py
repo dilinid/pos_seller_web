@@ -18,8 +18,9 @@ from app.models.pos_itemlots import PosItemLots
 from app.models.pos_itempick import PosItemPick
 from app.models.pos_orddtl import PosOrdDtl
 from app.models.pos_ordhed import OrderStatus, PosOrdHed
+from app.models.pos_staff import PosStaff
 from app.routes.auth import get_current_user
-from app.seller_utils import get_customer_name, get_store_id, short_user_code
+from app.seller_utils import get_customer_name, get_store_id, short_user_code, staff_code, staff_display_name
 
 router = APIRouter(prefix="/api/seller/pickup-list", tags=["pickup"])
 
@@ -49,16 +50,20 @@ class PickupOrderOut(BaseModel):
     status: str  # "Pending" | "Confirmed"
     pickNo: str
     remarks: str
+    picker: Optional[str] = None
 
 
 class PickupDetailOut(BaseModel):
     order: PickupOrderOut
     items: list[PickupItemOut]
-    printedBy: Optional[str] = None
 
 
 class RemarksUpdateRequest(BaseModel):
     remarks: str
+
+
+class PrintPickRequest(BaseModel):
+    pickerId: int
 
 
 class ConfirmPickItem(BaseModel):
@@ -104,6 +109,7 @@ def _to_order_out(session: Session, order: PosOrdHed) -> PickupOrderOut:
         status="Confirmed" if (pick and pick.itempick_confirm) else "Pending",
         pickNo=f"PK-{pick.itempick_id:04d}" if pick else "",
         remarks=(pick.itempick_Remark or "") if pick else "",
+        picker=staff_display_name(session, pick.itempick_user) if pick else None,
     )
 
 
@@ -169,14 +175,19 @@ def get_pickup_order(
 @router.post("/{ord_no}/print", response_model=PickupDetailOut)
 def print_pickup_order(
     ord_no: str,
+    body: PrintPickRequest,
     session: Session = Depends(get_session),
     current_user: ITUserMaster = Depends(get_current_user),
 ):
     """Print the pick sheet. First print inserts the pos_itempick row (assigning
-    the Pick #); reprinting an already-printed, unconfirmed order is idempotent."""
+    the Pick # and the selected picker); reprinting an already-printed, unconfirmed
+    order is idempotent but may reassign the picker. Confirmed picks are locked."""
     order = _get_order_or_404(session, ord_no)
+    picker = session.get(PosStaff, body.pickerId)
+    if not picker or not picker.status:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid picker")
+
     now = datetime.utcnow()
-    user_code = short_user_code(current_user)
 
     pick = _latest_pick(session, ord_no)
     if not pick:
@@ -184,8 +195,8 @@ def print_pickup_order(
             itempick_ordno=ord_no,
             itempick_loc=order.storeId,
             itempick_mddate=now,
-            itempick_user=user_code,
-            itempick_mdby=user_code,
+            itempick_user=staff_code(picker),
+            itempick_mdby=short_user_code(current_user),
             itempick_confirm=False,
         )
         session.add(pick)
@@ -197,12 +208,14 @@ def print_pickup_order(
 
         session.commit()
         session.refresh(order)
+    elif not pick.itempick_confirm:
+        pick.itempick_user = staff_code(picker)
+        pick.itempick_mddate = now
+        pick.itempick_mdby = short_user_code(current_user)
+        session.add(pick)
+        session.commit()
 
-    return PickupDetailOut(
-        order=_to_order_out(session, order),
-        items=_to_items_out(session, order),
-        printedBy=current_user.name,
-    )
+    return PickupDetailOut(order=_to_order_out(session, order), items=_to_items_out(session, order))
 
 
 @router.patch("/{ord_no}/remarks", response_model=PickupOrderOut)

@@ -56,7 +56,7 @@ export async function fetchPackingDetail(orderNo: string): Promise<PackingDetail
 
 export async function markPacked(
   orderNo: string,
-  body: { packageTypeId: number; weight: number; remarks?: string },
+  body: { packageTypeId: number; packerId: number; weight: number; remarks?: string },
 ): Promise<PackingDetail> {
   const response = await api.post<PackingDetail>(`${BASE_URL}/${orderNo}/pack`, body);
   return response.data;

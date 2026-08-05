@@ -8,6 +8,7 @@ export interface PickupOrder {
   status: 'Pending' | 'Confirmed';
   pickNo: string;
   remarks: string;
+  picker: string | null;
 }
 
 export interface PickupItem {
@@ -22,7 +23,6 @@ export interface PickupItem {
 export interface PickupDetail {
   order: PickupOrder;
   items: PickupItem[];
-  printedBy?: string | null;
 }
 
 const BASE_URL = '/api/seller/pickup-list';
@@ -37,8 +37,8 @@ export async function fetchPickupDetail(orderNo: string): Promise<PickupDetail> 
   return response.data;
 }
 
-export async function printPickupOrder(orderNo: string): Promise<PickupDetail> {
-  const response = await api.post<PickupDetail>(`${BASE_URL}/${orderNo}/print`);
+export async function printPickupOrder(orderNo: string, pickerId: number): Promise<PickupDetail> {
+  const response = await api.post<PickupDetail>(`${BASE_URL}/${orderNo}/print`, { pickerId });
   return response.data;
 }
 

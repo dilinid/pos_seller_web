@@ -23,8 +23,9 @@ from app.models.pos_itempick import PosItemPick
 from app.models.pos_orddtl import PosOrdDtl
 from app.models.pos_ordhed import PosOrdHed
 from app.models.pos_package_type import PosPackageType
+from app.models.pos_staff import PosStaff
 from app.routes.auth import get_current_user
-from app.seller_utils import get_customer_name, get_store_id, short_user_code, user_display_name
+from app.seller_utils import get_customer_name, get_store_id, short_user_code, staff_code, staff_display_name
 
 router = APIRouter(prefix="/api/seller/packing-list", tags=["packing"])
 meta_router = APIRouter(prefix="/api/seller", tags=["packing"])
@@ -76,6 +77,7 @@ class RemarksUpdateRequest(BaseModel):
 
 class MarkPackedRequest(BaseModel):
     packageTypeId: int
+    packerId: int
     weight: float
     remarks: Optional[str] = None
 
@@ -132,7 +134,7 @@ def _to_order_out(session: Session, order: PosOrdHed, pick: PosItemPick) -> Pack
         packageType=pack.itempack_pakagetype if pack else None,
         weight=float(pack.itempack_weight) if pack and pack.itempack_weight is not None else None,
         dimensions=pack.itempack_dimenstion if pack else None,
-        packedBy=user_display_name(session, pack.itempack_user) if pack else None,
+        packedBy=staff_display_name(session, pack.itempack_user) if pack else None,
         remarks=(pack.itempack_Remark or "") if pack else "",
     )
 
@@ -256,18 +258,21 @@ def mark_packed(
     if not package_type or not package_type.status:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid package type")
 
+    packer = session.get(PosStaff, body.packerId)
+    if not packer or not packer.status:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid packer")
+
     dims = [package_type.length, package_type.width, package_type.height]
     dimensions = " x ".join(f"{float(d):g}" for d in dims) + " cm" if all(d is not None for d in dims) else None
 
     now = datetime.utcnow()
-    user_code = short_user_code(current_user)
 
     pack = PosItemPack(
         itempack_ordno=ord_no,
         itempack_loc=order.storeId,
         itempack_mddate=now,
-        itempack_user=user_code,
-        itempack_mdby=user_code,
+        itempack_user=staff_code(packer),
+        itempack_mdby=short_user_code(current_user),
         itempack_pakagetype=package_type.type,
         itempack_weight=body.weight,
         itempack_dimenstion=dimensions,

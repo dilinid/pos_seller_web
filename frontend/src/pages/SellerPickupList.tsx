@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ShoppingCart, Printer, Pencil, Eye, Loader2 } from 'lucide-react';
-import { useAuthStore } from '../stores/auth.store';
 import {
   fetchPickupList,
   fetchPickupDetail,
@@ -10,6 +9,7 @@ import {
   type PickupOrder,
   type PickupItem,
 } from '../apis/pickup.api';
+import { fetchStaff, type StaffMember } from '../apis/staff.api';
 
 const STATUS_STYLES: Record<PickupOrder['status'], { bg: string; color: string }> = {
   Pending: { bg: '#fef3c7', color: '#d97706' },
@@ -77,6 +77,7 @@ function printPickupRecord(order: PickupOrder, items: PickupItem[]) {
           <strong>Order Date:</strong> ${formatOrderDate(order.orderDate)}<br/>
           <strong>Customer:</strong> ${order.customer}<br/>
           <strong>Status:</strong> ${order.status}
+          ${order.picker ? `<br/><strong>Picked By:</strong> ${order.picker}` : ''}
           ${order.remarks ? `<br/><strong>Remarks:</strong> ${order.remarks}` : ''}
         </p>
         <table>
@@ -98,13 +99,14 @@ function printPickupRecord(order: PickupOrder, items: PickupItem[]) {
 }
 
 const SellerPickupList: React.FC = () => {
-  const user = useAuthStore((s) => s.user);
-
   const [orders, setOrders] = useState<PickupOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [remarksDraft, setRemarksDraft] = useState<Record<string, string>>({});
   const [printingOrderNo, setPrintingOrderNo] = useState<string | null>(null);
+
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [pickerId, setPickerId] = useState<number | ''>('');
 
   const [selectedOrderNo, setSelectedOrderNo] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'view' | null>(null);
@@ -135,6 +137,7 @@ const SellerPickupList: React.FC = () => {
 
   useEffect(() => {
     loadOrders();
+    fetchStaff().then(setStaff).catch(() => setStaff([]));
   }, []);
 
   const applyOrderUpdate = (updated: PickupOrder) => {
@@ -143,9 +146,13 @@ const SellerPickupList: React.FC = () => {
   };
 
   const handlePrint = async (order: PickupOrder) => {
+    if (pickerId === '') {
+      alert('Select a picker before printing.');
+      return;
+    }
     setPrintingOrderNo(order.orderNo);
     try {
-      const detail = await printPickupOrder(order.orderNo);
+      const detail = await printPickupOrder(order.orderNo, pickerId);
       applyOrderUpdate(detail.order);
       printPickupRecord(detail.order, detail.items);
     } catch {
@@ -276,8 +283,21 @@ const SellerPickupList: React.FC = () => {
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Pick Up List</h3>
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            <div><strong>Date:</strong> {today}</div>
-            <div><strong>Picker:</strong> {user?.name || 'Unassigned'}</div>
+            <div style={{ marginBottom: '6px' }}><strong>Date:</strong> {today}</div>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+              <strong>Picker:</strong>
+              <select
+                value={pickerId}
+                onChange={(e) => setPickerId(e.target.value ? Number(e.target.value) : '')}
+                className="form-input"
+                style={{ padding: '4px 8px', fontSize: '0.82rem' }}
+              >
+                <option value="">Select picker…</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
@@ -341,12 +361,17 @@ const SellerPickupList: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handlePrint(order)}
-                        disabled={isPrinting}
-                        title={order.pickNo ? 'Reprint this pick up record' : 'Print this pick up record'}
+                        disabled={isPrinting || pickerId === ''}
+                        title={
+                          pickerId === ''
+                            ? 'Select a picker first'
+                            : order.pickNo ? 'Reprint this pick up record' : 'Print this pick up record'
+                        }
                         style={{
                           background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px',
-                          padding: '5px 7px', cursor: isPrinting ? 'wait' : 'pointer',
+                          padding: '5px 7px', cursor: isPrinting ? 'wait' : pickerId === '' ? 'not-allowed' : 'pointer',
                           color: 'var(--text-secondary)', display: 'inline-flex',
+                          opacity: pickerId === '' ? 0.5 : 1,
                         }}
                       >
                         {isPrinting ? <Loader2 size={14} className="spin" /> : <Printer size={14} />}

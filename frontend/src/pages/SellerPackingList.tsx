@@ -11,6 +11,7 @@ import {
   type PackingOrder,
   type PackingDetail,
 } from '../apis/packing.api';
+import { fetchStaff, type StaffMember } from '../apis/staff.api';
 
 const STATUS_STYLES: Record<PackingOrder['status'], { bg: string; color: string }> = {
   Pending: { bg: '#fef3c7', color: '#d97706' },
@@ -71,11 +72,13 @@ const SellerPackingList: React.FC = () => {
   const [remarksDraft, setRemarksDraft] = useState<Record<string, string>>({});
 
   const [packageTypes, setPackageTypes] = useState<PackageType[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [selectedOrderNo, setSelectedOrderNo] = useState<string | null>(null);
   const [detail, setDetail] = useState<PackingDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [packageTypeId, setPackageTypeId] = useState<number | ''>('');
+  const [packerId, setPackerId] = useState<number | ''>('');
   const [weightInput, setWeightInput] = useState('');
   const [packSubmitting, setPackSubmitting] = useState(false);
   const [packError, setPackError] = useState<string | null>(null);
@@ -98,6 +101,7 @@ const SellerPackingList: React.FC = () => {
   useEffect(() => {
     loadRecords();
     fetchPackageTypes().then(setPackageTypes).catch(() => setPackageTypes([]));
+    fetchStaff().then(setStaff).catch(() => setStaff([]));
   }, []);
 
   const applyOrderUpdate = (updated: PackingOrder) => {
@@ -110,6 +114,7 @@ const SellerPackingList: React.FC = () => {
     setDetailLoading(true);
     setPackError(null);
     setPackageTypeId('');
+    setPackerId('');
     setWeightInput('');
     try {
       const data = await fetchPackingDetail(orderNo);
@@ -146,8 +151,8 @@ const SellerPackingList: React.FC = () => {
   const handleMarkPacked = async () => {
     if (!selectedOrderNo) return;
     const weight = Number(weightInput);
-    if (packageTypeId === '' || Number.isNaN(weight) || weight <= 0) {
-      setPackError('Select a package type and enter a valid weight.');
+    if (packageTypeId === '' || packerId === '' || Number.isNaN(weight) || weight <= 0) {
+      setPackError('Select a package type, a packer, and enter a valid weight.');
       return;
     }
     setPackSubmitting(true);
@@ -155,6 +160,7 @@ const SellerPackingList: React.FC = () => {
     try {
       const updated = await markPacked(selectedOrderNo, {
         packageTypeId: Number(packageTypeId),
+        packerId: Number(packerId),
         weight,
         remarks: remarksDraft[selectedOrderNo],
       });
@@ -417,6 +423,20 @@ const SellerPackingList: React.FC = () => {
                         {t.type}
                         {t.length && t.width && t.height ? ` (${t.length} x ${t.width} x ${t.height} cm)` : ''}
                       </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Packer
+                  <select
+                    value={packerId}
+                    onChange={(e) => setPackerId(e.target.value ? Number(e.target.value) : '')}
+                    className="form-input"
+                    style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  >
+                    <option value="">Select a packer…</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </label>
