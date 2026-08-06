@@ -9,7 +9,7 @@ interface DeliveryTrackerProps {
 
 function stepIndex(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
-    pending: 0, confirmed: 1, processing: 2, shipped: 3, delivered: 4, completed: 4, cancelled: -1,
+    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, cancelled: -1,
   };
   return map[status] ?? 0;
 }

@@ -49,7 +49,9 @@ export interface CartItem {
 
 export type PaymentMethodType = 'card' | 'cod';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
+// Mirrors the backend's OrderStatus enum (backend/app/models/pos_ordhed.py) 1:1 —
+// keep these two lists in sync.
+export type OrderStatus = 'pending' | 'picking' | 'packing' | 'shipped' | 'delivered' | 'cancelled';
 
 export type PaymentStatus = 'pending' | 'paid';
 

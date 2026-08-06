@@ -6,40 +6,43 @@ import { useSellerStore } from '../stores/seller.store';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { SellerOrderCard } from '../components/seller/SellerOrderCard';
 import { SellerOrderDrawer } from '../components/seller/SellerOrderDrawer';
+import { ORDER_STATUS_META } from '../data/order-status';
 
 function getSellerStatus(order: Order, sellerId: string): OrderStatus {
   const items = order.items.filter((i) => i.sellerId === sellerId);
   if (items.length === 0) return 'pending';
   if (items.every((i) => i.status === 'cancelled')) return 'cancelled';
-  if (items.every((i) => i.status === 'delivered' || i.status === 'completed')) return 'delivered';
+  if (items.every((i) => i.status === 'delivered')) return 'delivered';
   if (items.every((i) => i.status === 'shipped')) return 'shipped';
-  if (items.every((i) => i.status === 'processing')) return 'processing';
-  if (items.every((i) => i.status === 'confirmed')) return 'confirmed';
+  if (items.every((i) => i.status === 'packing')) return 'packing';
+  if (items.every((i) => i.status === 'picking')) return 'picking';
   if (items.some((i) => i.status === 'shipped')) return 'shipped';
-  if (items.some((i) => i.status === 'processing')) return 'processing';
-  if (items.some((i) => i.status === 'confirmed')) return 'confirmed';
+  if (items.some((i) => i.status === 'packing')) return 'packing';
+  if (items.some((i) => i.status === 'picking')) return 'picking';
   return 'pending';
 }
 
+const STATUS_ICONS: Record<OrderStatus, typeof Clock> = {
+  pending: Clock,
+  picking: Clock,
+  packing: Package,
+  shipped: Truck,
+  delivered: CheckCircle,
+  cancelled: XCircle,
+};
+
 const DELIVERY_TABS: Array<{ key: string; label: string; icon: typeof Clock }> = [
   { key: 'all', label: 'All', icon: ClipboardList },
-  { key: 'pending', label: 'Pending', icon: Clock },
-  { key: 'confirmed', label: 'Confirmed', icon: Clock },
-  { key: 'processing', label: 'Processing', icon: Clock },
-  { key: 'shipped', label: 'Shipped', icon: Truck },
-  { key: 'delivered', label: 'Delivered', icon: CheckCircle },
-  { key: 'cancelled', label: 'Cancelled', icon: XCircle },
+  ...(Object.keys(ORDER_STATUS_META) as OrderStatus[]).map((key) => ({
+    key, label: ORDER_STATUS_META[key].label, icon: STATUS_ICONS[key],
+  })),
 ];
 
-const PICKUP_TABS: Array<{ key: string; label: string; icon: typeof Clock }> = [
-  { key: 'all', label: 'All', icon: ClipboardList },
-  { key: 'pending', label: 'Pending', icon: Clock },
-  { key: 'confirmed', label: 'Confirmed', icon: Clock },
-  { key: 'processing', label: 'Processing', icon: Clock },
-  { key: 'shipped', label: 'Ready', icon: Store },
-  { key: 'delivered', label: 'Picked Up', icon: CheckCircle },
-  { key: 'cancelled', label: 'Cancelled', icon: XCircle },
-];
+const PICKUP_TABS: Array<{ key: string; label: string; icon: typeof Clock }> = DELIVERY_TABS.map((tab) => {
+  if (tab.key === 'shipped') return { ...tab, label: 'Ready', icon: Store };
+  if (tab.key === 'delivered') return { ...tab, label: 'Picked Up' };
+  return tab;
+});
 
 const SellerOrders: React.FC = () => {
   const user = useAuthStore((s) => s.user);
@@ -91,7 +94,7 @@ const SellerOrders: React.FC = () => {
   }, [sellerOrders, activeTab, searchQuery, sellerId]);
 
   const stats = useMemo(() => {
-    const s = { pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, total: sellerOrders.length };
+    const s = { pending: 0, picking: 0, packing: 0, shipped: 0, delivered: 0, total: sellerOrders.length };
     for (const o of sellerOrders) {
       const st = getSellerStatus(o, sellerId);
       if (st in s) s[st as keyof typeof s]++;
@@ -128,8 +131,8 @@ const SellerOrders: React.FC = () => {
     const isDelivery = method === 'delivery';
     return [
       { label: 'Pending', value: stats.pending, color: '#f59e0b', bg: '#fffbeb' },
-      { label: 'Confirmed', value: stats.confirmed, color: '#3b82f6', bg: '#eff6ff' },
-      { label: 'Processing', value: stats.processing, color: '#8b5cf6', bg: '#f5f3ff' },
+      { label: 'Picking', value: stats.picking, color: '#3b82f6', bg: '#eff6ff' },
+      { label: 'Packing', value: stats.packing, color: '#8b5cf6', bg: '#f5f3ff' },
       { label: isDelivery ? 'Shipped' : 'Ready', value: stats.shipped, color: '#06b6d4', bg: '#ecfeff' },
       { label: isDelivery ? 'Delivered' : 'Picked Up', value: stats.delivered ?? 0, color: '#10b981', bg: '#ecfdf5' },
       { label: 'Total', value: stats.total, color: 'var(--text-primary)', bg: '#f9fafb' },

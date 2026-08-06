@@ -3,7 +3,16 @@ import { persist } from 'zustand/middleware';
 import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
 import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
-import { fetchMarketplaceProducts, fetchMarketplaceCategories } from '../apis/marketplace.api';
+import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchOrderById, mapOrderRawToOrder } from '../apis/marketplace.api';
+import { useSellerStore } from './seller.store';
+
+/** Backend orders are the source of truth for any id they cover; other local-only
+ * entries (seller demo data, orders whose backend fetch hasn't landed yet) pass through. */
+function mergeOrders(existing: Order[], fetched: Order[]): Order[] {
+  const fetchedIds = new Set(fetched.map((o) => o.id));
+  const remaining = existing.filter((o) => !fetchedIds.has(o.id));
+  return [...fetched, ...remaining];
+}
 
 interface MarketplaceStoreState {
   products: Product[];
@@ -45,8 +54,12 @@ interface MarketplaceStoreState {
   setDirectBuyItem: (item: { product: Product; quantity: number } | null) => void;
 
   orders: Order[];
+  ordersLoading: boolean;
+  ordersError: string | null;
   allReviews: UserReview[];
   reviewPeriods: ReviewPeriod[];
+  loadOrders: () => Promise<void>;
+  loadOrder: (orderId: string) => Promise<void>;
   addOrder: (order: Order) => void;
   updateOrderItemStatus: (orderId: string, productId: string, status: OrderStatus) => void;
   updateOrderPaymentStatus: (orderId: string, status: PaymentStatus) => void;
@@ -85,6 +98,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       categoriesError: null,
       ...CHECKOUT_INIT,
       orders: [],
+      ordersLoading: false,
+      ordersError: null,
       allReviews: [],
       reviewPeriods: [],
 
@@ -113,6 +128,32 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load categories';
           set({ categoriesError: message, categoriesLoading: false });
+        }
+      },
+
+      loadOrders: async () => {
+        set({ ordersLoading: true, ordersError: null });
+        try {
+          const raw = await fetchMyOrders();
+          const { id: sellerId, storeName } = useSellerStore.getState().profile;
+          const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
+          set({ orders: mergeOrders(get().orders, fetched), ordersLoading: false });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load orders';
+          set({ ordersError: message, ordersLoading: false });
+        }
+      },
+
+      loadOrder: async (orderId) => {
+        set({ ordersLoading: true, ordersError: null });
+        try {
+          const raw = await fetchOrderById(orderId);
+          const { id: sellerId, storeName } = useSellerStore.getState().profile;
+          const order = mapOrderRawToOrder(raw, sellerId, storeName || 'Our Store');
+          set({ orders: mergeOrders(get().orders, [order]), ordersLoading: false });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load order';
+          set({ ordersError: message, ordersLoading: false });
         }
       },
 
@@ -306,8 +347,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 28.50, estimatedDelivery: '3-5 business days',
               items: [
-                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 2, 'confirmed', { unit: '12 Pack' }),
-                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'confirmed', { unit: '1 Loaf (800g)', mrp: 8.99 }),
+                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 2, 'picking', { unit: '12 Pack' }),
+                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'picking', { unit: '1 Loaf (800g)', mrp: 8.99 }),
               ],
             },
             {
@@ -317,7 +358,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               orderNotes: 'Leave at the gate', paymentMethod: 'cod', paymentStatus: 'pending',
               grandTotal: 67.48, estimatedDelivery: '3-5 business days',
               items: [
-                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 3, 'processing', { unit: '1L Bottle', mrp: 14.99 }),
+                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 3, 'packing', { unit: '1L Bottle', mrp: 14.99 }),
               ],
             },
             {
@@ -368,10 +409,10 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               orderNotes: 'Leave with neighbor if not home', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 58.95, estimatedDelivery: '3-5 business days',
               items: [
-                item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 3, 'processing', { unit: '1L Carton', mrp: 5.49 }),
-                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 2, 'processing', { unit: '12 Pack' }),
-                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'processing', { unit: '1 Loaf (800g)', mrp: 8.99 }),
-                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 1, 'processing', { unit: '1L Bottle', mrp: 14.99 }),
+                item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 3, 'packing', { unit: '1L Carton', mrp: 5.49 }),
+                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 2, 'packing', { unit: '12 Pack' }),
+                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'packing', { unit: '1 Loaf (800g)', mrp: 8.99 }),
+                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 1, 'packing', { unit: '1L Bottle', mrp: 14.99 }),
               ],
             },
             {
@@ -381,9 +422,9 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 42.48, estimatedDelivery: '3-5 business days',
               items: [
-                item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 2, 'confirmed', { unit: '1L Carton', mrp: 5.49 }),
-                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'confirmed', { unit: '12 Pack' }),
-                item('prod_ext_1', 'Artisan Sourdough', '🍞', 8.50, 1, 'confirmed'),
+                item('prod_super_1', 'Organic Whole Milk', '🥛', 4.50, 2, 'picking', { unit: '1L Carton', mrp: 5.49 }),
+                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'picking', { unit: '12 Pack' }),
+                item('prod_ext_1', 'Artisan Sourdough', '🍞', 8.50, 1, 'picking'),
               ],
             },
             {
@@ -393,8 +434,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               orderNotes: '', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 24.48, estimatedDelivery: '3-5 business days',
               items: [
-                item('prod_super_7', 'Aged Cheddar Block', '🧀', 8.99, 1, 'completed', { unit: '500g Block', sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-002', sellerPayoutDate: '2026-07-12' }),
-                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 1, 'completed', { unit: '1L Bottle', mrp: 14.99, sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-002', sellerPayoutDate: '2026-07-12' }),
+                item('prod_super_7', 'Aged Cheddar Block', '🧀', 8.99, 1, 'delivered', { unit: '500g Block', sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-002', sellerPayoutDate: '2026-07-12' }),
+                item('prod_super_5', 'Cold Brew Coffee (1L)', '☕', 12.00, 1, 'delivered', { unit: '1L Bottle', mrp: 14.99, sellerPayoutStatus: 'paid', sellerPayoutMethod: 'bank_transfer', sellerPayoutRef: 'BT-2025-002', sellerPayoutDate: '2026-07-12' }),
               ],
             },
             {
@@ -448,8 +489,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               orderNotes: 'Ring doorbell', paymentMethod: 'card', paymentStatus: 'paid',
               grandTotal: 18.50, estimatedDelivery: '3-5 business days',
               items: [
-                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'confirmed', { unit: '12 Pack' }),
-                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'confirmed', { unit: '1 Loaf (800g)', mrp: 8.99 }),
+                item('prod_super_3', 'Free-Range Eggs (12pk)', '🥚', 6.00, 1, 'picking', { unit: '12 Pack' }),
+                item('prod_super_4', 'Sourdough Bread Loaf', '🍞', 7.50, 1, 'picking', { unit: '1 Loaf (800g)', mrp: 8.99 }),
               ],
             },
           ];
@@ -461,7 +502,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           if (!order.id.startsWith('ORD-DEMO-')) continue;
           const sellerItems = order.items.filter((i) => i.sellerId === sellerId);
           const allDelivered = sellerItems.length > 0 && sellerItems.every(
-            (i) => i.status === 'delivered' || i.status === 'completed'
+            (i) => i.status === 'delivered'
           );
           if (allDelivered && !currentPeriods.some((rp) => rp.orderId === order.id && rp.sellerId === sellerId)) {
             get().startReviewPeriod(order.id, sellerId, order.buyerName);

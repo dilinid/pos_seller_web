@@ -67,10 +67,10 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
 
   const orderLevelStatus = (): OrderStatus => {
     if (sellerItems.every((i) => i.status === 'cancelled')) return 'cancelled';
-    if (sellerItems.every((i) => i.status === 'delivered' || i.status === 'completed')) return 'delivered';
+    if (sellerItems.every((i) => i.status === 'delivered')) return 'delivered';
     if (sellerItems.some((i) => i.status === 'shipped')) return 'shipped';
-    if (sellerItems.some((i) => i.status === 'processing')) return 'processing';
-    if (sellerItems.some((i) => i.status === 'confirmed')) return 'confirmed';
+    if (sellerItems.some((i) => i.status === 'packing')) return 'packing';
+    if (sellerItems.some((i) => i.status === 'picking')) return 'picking';
     return 'pending';
   };
 

@@ -59,7 +59,7 @@ export function checkCODEligibility(user: UserProfile | null, orders: Order[]): 
   });
 
   const completedOrders = orders.filter((o) =>
-    o.items.every((i) => i.status === 'delivered' || i.status === 'completed')
+    o.items.every((i) => i.status === 'delivered')
   );
   const completedCount = completedOrders.length;
   const ordersMet = completedCount >= 3;

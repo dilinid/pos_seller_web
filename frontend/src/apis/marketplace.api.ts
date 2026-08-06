@@ -1,5 +1,5 @@
 import { api } from '../shared/axios';
-import type { Product, ProductSubCategory } from '../types/marketplace.type';
+import type { Order, OrderItem, OrderStatus, PaymentMethodType, PaymentStatus, Product, ProductSubCategory } from '../types/marketplace.type';
 
 export interface MarketplaceProductRaw {
   id: string;
@@ -56,5 +56,106 @@ export async function fetchMarketplaceProducts(): Promise<Product[]> {
 
 export async function fetchMarketplaceCategories(): Promise<ProductSubCategory[]> {
   const response = await api.get<ProductSubCategory[]>('/api/marketplace/categories');
+  return response.data;
+}
+
+export interface PlaceOrderItem {
+  itemCode: string;
+  quantity: number;
+  price: number;
+}
+
+export interface PlaceOrderRequest {
+  items: PlaceOrderItem[];
+  deliveryMethod: 'delivery' | 'pickup';
+  deliveryAddress?: string;
+  deliveryFee: number;
+  paymentMethod: 'card' | 'cod';
+}
+
+export interface PlaceOrderResponse {
+  ordNo: string;
+  status: string;
+  createdAt: string;
+}
+
+export async function placeOrder(body: PlaceOrderRequest): Promise<PlaceOrderResponse> {
+  const response = await api.post<PlaceOrderResponse>('/api/marketplace/orders', body);
+  return response.data;
+}
+
+export interface OrderItemRaw {
+  productId: string;
+  productName: string;
+  productImage: string | null;
+  price: number;
+  mrp: number | null;
+  quantity: number;
+  unit: string;
+  deliveryMethod: 'delivery' | 'pickup';
+  deliveryFee: number;
+  status: OrderStatus;
+}
+
+export interface OrderRaw {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItemRaw[];
+  buyerName: string;
+  buyerPhone: string | null;
+  buyerEmail: string | null;
+  deliveryAddress: string;
+  deliveryDistrict: string;
+  orderNotes: string;
+  paymentMethod: PaymentMethodType;
+  paymentStatus: PaymentStatus;
+  grandTotal: number;
+  estimatedDelivery: string;
+}
+
+/** Fills in the single-tenant seller identity (see useSellerStore's `id: 'store'`)
+ * that the backend doesn't know about — this app has exactly one seller. */
+export function mapOrderRawToOrder(raw: OrderRaw, sellerId: string, sellerName: string): Order {
+  const items: OrderItem[] = raw.items.map((item) => ({
+    productId: item.productId,
+    productName: item.productName,
+    productImage: item.productImage ?? '',
+    price: item.price,
+    mrp: item.mrp ?? undefined,
+    quantity: item.quantity,
+    unit: item.unit,
+    sellerId,
+    sellerName,
+    deliveryMethod: item.deliveryMethod,
+    deliveryFee: item.deliveryFee,
+    status: item.status,
+  }));
+
+  return {
+    id: raw.id,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    items,
+    buyerName: raw.buyerName,
+    buyerPhone: raw.buyerPhone ?? undefined,
+    buyerEmail: raw.buyerEmail ?? undefined,
+    deliveryAddress: raw.deliveryAddress,
+    deliveryDistrict: raw.deliveryDistrict,
+    orderNotes: raw.orderNotes,
+    paymentMethod: raw.paymentMethod,
+    paymentStatus: raw.paymentStatus,
+    grandTotal: raw.grandTotal,
+    estimatedDelivery: raw.estimatedDelivery,
+  };
+}
+
+export async function fetchMyOrders(): Promise<OrderRaw[]> {
+  const response = await api.get<OrderRaw[]>('/api/marketplace/orders');
+  return response.data;
+}
+
+export async function fetchOrderById(orderId: string): Promise<OrderRaw> {
+  const response = await api.get<OrderRaw>(`/api/marketplace/orders/${encodeURIComponent(orderId)}`);
   return response.data;
 }

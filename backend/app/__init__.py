@@ -14,6 +14,8 @@ from app.routes.packing import meta_router as packing_meta_router
 from app.routes.packing import router as packing_router
 from app.routes.pickup import router as pickup_router
 from app.routes.staff import router as staff_router
+from app.routes.orders import router as orders_router
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,7 @@ def create_app() -> FastAPI:
     # Routers
     app.include_router(auth_router)
     app.include_router(marketplace_router)
+    app.include_router(orders_router)
     app.include_router(pickup_router)
     app.include_router(packing_router)
     app.include_router(packing_meta_router)

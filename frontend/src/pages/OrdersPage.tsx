@@ -1,23 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, CreditCard, Banknote, Star } from 'lucide-react';
+import { ShoppingBag, CreditCard, Banknote, Star, AlertCircle } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { OrderStatusBadge } from '../components/marketplace/OrderStatusBadge';
 import { ProductImage } from '../components/ui/ProductImage';
 import { formatCurrency } from '../utils/currency';
 import type { OrderStatus } from '../types/marketplace.type';
+import { ORDER_STATUS_META, ORDER_STATUS_VALUES } from '../data/order-status';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 
 const STATUS_TABS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Confirmed', value: 'confirmed' },
-  { label: 'Processing', value: 'processing' },
-  { label: 'Shipped', value: 'shipped' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Cancelled', value: 'cancelled' },
+  ...ORDER_STATUS_VALUES.map((value) => ({ label: ORDER_STATUS_META[value].label, value })),
 ];
 
 const PAYMENT_ICONS: Record<string, React.ReactNode> = {
@@ -33,12 +28,20 @@ const PAYMENT_LABELS: Record<string, string> = {
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const orders = useMarketplaceStore((s) => s.orders);
+  const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
+  const ordersError = useMarketplaceStore((s) => s.ordersError);
+  const loadOrders = useMarketplaceStore((s) => s.loadOrders);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('all');
 
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
   const filteredOrders = useMemo(() => {
-    let list = orders;
+    // Exclude seller-dashboard demo orders (seeded on the seller side, not this buyer's own).
+    let list = orders.filter((o) => !o.id.startsWith('ORD-DEMO-'));
     if (activeTab !== 'all') {
       list = list.filter((o) => {
         const itemStatuses = o.items.map((i) => i.status);
@@ -86,7 +89,23 @@ const OrdersPage: React.FC = () => {
               </div>
             </div>
 
-            {orderCount === 0 ? (
+            {ordersError && (
+              <div style={{
+                margin: '0 20px 16px', padding: '10px 14px', borderRadius: '10px',
+                background: '#fef2f2', border: '1px solid #fecaca',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                fontSize: '0.82rem', color: '#dc2626',
+              }}>
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span>Couldn&apos;t load your latest orders ({ordersError}).</span>
+              </div>
+            )}
+
+            {orderCount === 0 && ordersLoading ? (
+              <div className="ords-empty" style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Loading your orders…
+              </div>
+            ) : orderCount === 0 ? (
               <div className="ords-empty" style={{ textAlign: 'center' }}>
                 <div style={{
                   width: '64px', height: '64px', borderRadius: '50%',
@@ -115,9 +134,8 @@ const OrdersPage: React.FC = () => {
               <div className="ords-card-list" style={{ display: 'flex', flexDirection: 'column' }}>
                 {filteredOrders.map((order) => {
                   const latestItemStatus = order.items.reduce((latest, item) => {
-                    const stepOrder = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'];
-                    const currentIdx = stepOrder.indexOf(item.status);
-                    const latestIdx = stepOrder.indexOf(latest);
+                    const currentIdx = ORDER_STATUS_VALUES.indexOf(item.status);
+                    const latestIdx = ORDER_STATUS_VALUES.indexOf(latest);
                     return currentIdx < latestIdx ? item.status : latest;
                   }, order.items[0]?.status ?? 'pending');
 
@@ -163,7 +181,7 @@ const OrdersPage: React.FC = () => {
                           </div>
                         )}
 
-                        {order.items.some((i) => i.status === 'delivered' || i.status === 'completed') && (
+                        {order.items.some((i) => i.status === 'delivered') && (
                           <div style={{
                             padding: '8px 12px', borderRadius: '8px', marginBottom: '10px',
                             background: '#f0fdf4', border: '1px solid #86efac',
