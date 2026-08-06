@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import init_db
 from app.routes.auth import router as auth_router
+from app.routes.location import router as location_router
 from app.routes.marketplace import router as marketplace_router
 from app.routes.packing import meta_router as packing_meta_router
 from app.routes.packing import router as packing_router
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(auth_router)
+    app.include_router(location_router)
     app.include_router(marketplace_router)
     app.include_router(orders_router)
     app.include_router(pickup_router)

@@ -13,6 +13,9 @@ from app.config import settings
 from app.database import get_session
 from app.models.it_user_master import ITUserMaster
 from app.models.pos_customer import PosCustomer
+from app.models.sl_district import SlDistrict
+from app.models.sl_ds_division import SlDsDivision
+from app.models.sl_gn_division import SlGnDivision
 
 router = APIRouter()
 
@@ -94,6 +97,38 @@ class TokenResponse(BaseModel):
     user_role: str | None = None
     user_name: str | None = None
     name: str | None = None
+
+
+class DivisionOut(BaseModel):
+    id: str
+    name: str
+
+
+class CustomerContactResponse(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    gender: str | None = None
+    address: str | None = None
+    district: DivisionOut | None = None
+    dsDivision: DivisionOut | None = None
+    gnDivision: DivisionOut | None = None
+
+
+class UpdateCustomerContactRequest(BaseModel):
+    # cus_title doubles as the gender field on pos_customer — this app doesn't
+    # use pos_customer for name titles (Mr/Mrs/etc).
+    gender: str | None = None
+    # IDs from /api/location/* (e.g. "LK11" / "LK1103" / "LK1103005"), stored as
+    # plain values in pos_customer.cus_district/cus_dsdivision/cus_gndivision and
+    # resolved back to sl_* rows for display on read.
+    districtId: str | None = None
+    dsDivisionId: str | None = None
+    gnDivisionId: str | None = None
+    # The single "Delivery / Billing Address" field from the UI, split across
+    # cus_add1-4 (comma-separated, up to 4 lines) since that's how pos_customer
+    # stores an address.
+    address: str | None = None
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
@@ -246,3 +281,91 @@ def signup(
         user_name=user.user_name,
         name=user.name,
     )
+
+
+def _customer_contact_response(session: Session, customer: PosCustomer | None) -> CustomerContactResponse:
+    if not customer:
+        return CustomerContactResponse()
+
+    district = session.get(SlDistrict, customer.cus_district) if customer.cus_district else None
+    ds_division = session.get(SlDsDivision, customer.cus_dsdivision) if customer.cus_dsdivision else None
+    gn_division = session.get(SlGnDivision, customer.cus_gndivision) if customer.cus_gndivision else None
+
+    address_lines = [
+        line for line in (customer.cus_add1, customer.cus_add2, customer.cus_add3, customer.cus_add4) if line
+    ]
+
+    return CustomerContactResponse(
+        name=customer.cus_name,
+        phone=customer.cus_tep1,
+        email=customer.cus_email,
+        gender=customer.cus_title,
+        address=", ".join(address_lines) if address_lines else None,
+        district=DivisionOut(id=district.id, name=district.name_en) if district else None,
+        dsDivision=DivisionOut(id=ds_division.id, name=ds_division.name_en) if ds_division else None,
+        gnDivision=DivisionOut(id=gn_division.id, name=gn_division.name_en) if gn_division else None,
+    )
+
+
+@router.get("/api/auth/me", response_model=CustomerContactResponse)
+def get_my_contact_info(
+    session: Session = Depends(get_session),
+    current_user: ITUserMaster = Depends(get_current_user),
+):
+    """The current user's contact details, sourced from their linked pos_customer row."""
+    customer = (
+        session.get(PosCustomer, current_user.customer_id)
+        if current_user.customer_id
+        else None
+    )
+    return _customer_contact_response(session, customer)
+
+
+@router.patch("/api/auth/me", response_model=CustomerContactResponse)
+def update_my_contact_info(
+    body: UpdateCustomerContactRequest,
+    session: Session = Depends(get_session),
+    current_user: ITUserMaster = Depends(get_current_user),
+):
+    customer = (
+        session.get(PosCustomer, current_user.customer_id)
+        if current_user.customer_id
+        else None
+    )
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No customer profile is linked to this account",
+        )
+
+    if body.gender is not None:
+        customer.cus_title = body.gender[:10]
+
+    if body.districtId is not None:
+        if body.districtId and not session.get(SlDistrict, body.districtId):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid district")
+        customer.cus_district = body.districtId or None
+
+    if body.dsDivisionId is not None:
+        if body.dsDivisionId and not session.get(SlDsDivision, body.dsDivisionId):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Divisional Secretariat")
+        customer.cus_dsdivision = body.dsDivisionId or None
+
+    if body.gnDivisionId is not None:
+        if body.gnDivisionId and not session.get(SlGnDivision, body.gnDivisionId):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Grama Niladhari division")
+        customer.cus_gndivision = body.gnDivisionId or None
+
+    if body.address is not None:
+        # Split the single address field on commas into up to 4 lines — cus_add1-4
+        # is how pos_customer stores an address; maxsplit=3 keeps anything past the
+        # 3rd comma together in cus_add4 rather than dropping it.
+        parts = [p.strip()[:40] or None for p in body.address.split(",", 3)] if body.address.strip() else []
+        parts += [None] * (4 - len(parts))
+        customer.cus_add1, customer.cus_add2, customer.cus_add3, customer.cus_add4 = parts[:4]
+
+    session.add(customer)
+    session.commit()
+    session.refresh(customer)
+
+    return _customer_contact_response(session, customer)

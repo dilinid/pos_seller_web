@@ -32,7 +32,7 @@ const OrderDetailPage: React.FC = () => {
   const order = useMemo(() => orders.find((o) => o.id === orderId), [orders, orderId]);
 
   useEffect(() => {
-    if (orderId && !orderId.startsWith('ORD-DEMO-')) {
+    if (orderId) {
       loadOrder(orderId);
     }
   }, [orderId, loadOrder]);

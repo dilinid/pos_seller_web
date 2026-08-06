@@ -15,16 +15,11 @@ const POSSync: React.FC = () => {
   const items = usePushItemStore((s) => s.items);
   const updatePriceQuantity = usePushItemStore((s) => s.updatePriceQuantity);
   const publishItem = usePushItemStore((s) => s.publishItem);
-  const seedMockData = usePushItemStore((s) => s.seedMockData);
   const addProduct = useMarketplaceStore((s) => s.addProduct);
 
   const [pendingPublish, setPendingPublish] = useState<PushItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<PushItem | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  useEffect(() => {
-    if (user?.id) seedMockData(user.id);
-  }, [user?.id, seedMockData]);
 
   const pending = items.filter(
     (i) => i.userId === user?.id && i.status === 'ready_to_publish'
