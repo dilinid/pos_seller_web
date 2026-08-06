@@ -48,7 +48,7 @@ const SellerOrders: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const profile = useSellerStore((s) => s.profile);
   const orders = useMarketplaceStore((s) => s.orders);
-  const seedSellerOrders = useMarketplaceStore((s) => s.seedSellerOrders);
+  const loadSellerOrders = useMarketplaceStore((s) => s.loadSellerOrders);
   const sellerUpdateItemStatus = useMarketplaceStore((s) => s.sellerUpdateItemStatus);
   const sellerUpdateNote = useMarketplaceStore((s) => s.sellerUpdateNote);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
@@ -64,8 +64,8 @@ const SellerOrders: React.FC = () => {
   const sellerId = profile.id;
 
   useEffect(() => {
-    seedSellerOrders(sellerId);
-  }, [seedSellerOrders, sellerId]);
+    loadSellerOrders();
+  }, [loadSellerOrders]);
 
   const statusTabs = method === 'pickup' ? PICKUP_TABS : DELIVERY_TABS;
 

@@ -27,7 +27,7 @@ function getOrderPayoutStatus(order: Order, sellerId: string): SellerPayoutStatu
 const SellerPayments: React.FC = () => {
   const profile = useSellerStore((s) => s.profile);
   const orders = useMarketplaceStore((s) => s.orders);
-  const seedSellerOrders = useMarketplaceStore((s) => s.seedSellerOrders);
+  const loadSellerOrders = useMarketplaceStore((s) => s.loadSellerOrders);
 
   const [activeTab, setActiveTab] = useState<SellerPayoutStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,8 +35,8 @@ const SellerPayments: React.FC = () => {
   const sellerId = profile.id;
 
   useEffect(() => {
-    seedSellerOrders(sellerId);
-  }, [seedSellerOrders, sellerId]);
+    loadSellerOrders();
+  }, [loadSellerOrders]);
 
   const sellerOrders = useMemo(() => {
     return orders.filter((o) => o.items.some((i) => i.sellerId === sellerId));

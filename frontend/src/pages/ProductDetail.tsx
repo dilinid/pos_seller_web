@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Plus, Minus, Check } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useSellerStore } from '../stores/seller.store';
-import { REVIEWS } from '../data/reviews';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { ImageGallery } from '../components/marketplace/ImageGallery';
@@ -40,8 +39,7 @@ const ProductDetail: React.FC = () => {
     [categories, product?.subCategoryId]
   );
   const reviews = useMemo(() => {
-    const staticReviews = REVIEWS.filter((r) => r.productId === productId);
-    const userReviews = allReviews
+    return allReviews
       .filter((r) => r.targetType === 'product' && r.targetId === productId && !r.autoRated)
       .map((r) => ({
         id: r.id,
@@ -52,7 +50,6 @@ const ProductDetail: React.FC = () => {
         comment: r.comment,
         date: new Date(r.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
       }));
-    return [...staticReviews, ...userReviews];
   }, [productId, allReviews]);
 
   const cartItem = cart.find((item) => item.product.id === productId);

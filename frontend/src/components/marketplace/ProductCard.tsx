@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Plus, Minus } from 'lucide-react';
 import type { Product, CartItem, ProductSubCategory } from '../../types/marketplace.type';
 import { useMarketplaceStore } from '../../stores/marketplace.store';
-import { MARKETPLACE_CATEGORIES } from '../../data/categories';
 import { PriceDisplay } from '../ui/PriceDisplay';
 import { StarRating } from '../ui/StarRating';
 import { ProductImage } from '../ui/ProductImage';
@@ -18,15 +17,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, cartItem }) =
   const updateQuantity = useMarketplaceStore((s) => s.updateQuantity);
   const categories = useMarketplaceStore((s) => s.categories);
 
-  const subCategory = useMemo<ProductSubCategory | undefined>(() => {
-    const realCategory = categories.find((c) => c.id === product.categoryId);
-    if (realCategory) return realCategory;
-    for (const cat of MARKETPLACE_CATEGORIES) {
-      const found = cat?.subCategories?.find((s: any) => s.id === product.subCategoryId);
-      if (found) return found;
-    }
-    return undefined;
-  }, [categories, product.categoryId, product.subCategoryId]);
+  const subCategory = useMemo<ProductSubCategory | undefined>(
+    () => categories.find((c) => c.id === product.categoryId),
+    [categories, product.categoryId]
+  );
 
   return (
     <Link

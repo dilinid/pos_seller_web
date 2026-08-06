@@ -3,8 +3,8 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Save, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
+import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useProductDraftStore } from '../stores/product-draft.store';
-import { MARKETPLACE_CATEGORIES } from '../data/categories';
 import { EmojiPicker } from '../components/seller/EmojiPicker';
 import { FeatureEditor } from '../components/seller/FeatureEditor';
 import { SpecEditor } from '../components/seller/SpecEditor';
@@ -40,7 +40,6 @@ const SellerAddProduct: React.FC = () => {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [subCategoryId, setSubCategoryId] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -61,16 +60,13 @@ const SellerAddProduct: React.FC = () => {
   const [showDraftOverlay, setShowDraftOverlay] = useState(false);
   const [needsReReview, setNeedsReReview] = useState(false);
 
-  const categories = MARKETPLACE_CATEGORIES;
-  const currentCategory = categories.find((c) => c.id === categoryId);
-  const subCategories = (currentCategory as any)?.subCategories ?? [];
+  const categories = useMarketplaceStore((s) => s.categories);
 
   useEffect(() => {
     if (existingDraft) {
       setName(existingDraft.name);
       setUnit(existingDraft.unit);
       setCategoryId(existingDraft.categoryId);
-      setSubCategoryId(existingDraft.subCategoryId);
       setDescription(existingDraft.description);
       setImage(existingDraft.image);
       setImages(existingDraft.images);
@@ -100,7 +96,6 @@ const SellerAddProduct: React.FC = () => {
     if (current.name !== draft.name) changed.push('name');
     if (current.description !== draft.description) changed.push('description');
     if (current.categoryId !== draft.categoryId) changed.push('categoryId');
-    if (current.subCategoryId !== draft.subCategoryId) changed.push('subCategoryId');
     if (current.unit !== draft.unit) changed.push('unit');
     if (current.image !== draft.image) changed.push('image');
     if (JSON.stringify(current.images) !== JSON.stringify(draft.images)) changed.push('images');
@@ -129,7 +124,9 @@ const SellerAddProduct: React.FC = () => {
     name,
     description,
     categoryId,
-    subCategoryId,
+    // The real catalog taxonomy (pos_item_group) is flat — no separate subcategory
+    // concept — so this mirrors categoryId rather than collecting it separately.
+    subCategoryId: categoryId,
     unit,
     image: image || '📦',
     images,
@@ -149,7 +146,6 @@ const SellerAddProduct: React.FC = () => {
     if (!name.trim()) return 'Product name is required';
     if (!unit.trim()) return 'Unit is required';
     if (!categoryId) return 'Category is required';
-    if (!subCategoryId) return 'Subcategory is required';
     if (!description.trim()) return 'Description is required';
     if (!price || parseFloat(price) <= 0) return 'Price must be greater than 0';
     if (mrp && parseFloat(mrp) <= parseFloat(price)) return 'MRP must be higher than the selling price';
@@ -311,19 +307,12 @@ const SellerAddProduct: React.FC = () => {
               />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+          <div style={{ marginTop: '16px' }}>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Category *</label>
-              <select className="form-input" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubCategoryId(''); }} disabled={!canEditAll}>
+              <select className="form-input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={!canEditAll}>
                 <option value="">Select category</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Subcategory *</label>
-              <select className="form-input" value={subCategoryId} onChange={(e) => setSubCategoryId(e.target.value)} disabled={!canEditAll || !categoryId}>
-                <option value="">Select subcategory</option>
-                {subCategories.map((sc: any) => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
               </select>
             </div>
           </div>
