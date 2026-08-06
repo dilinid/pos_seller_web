@@ -14,15 +14,15 @@ interface StepDef {
 
 const STEPS: StepDef[] = [
   { key: 'pending', status: 'pending', label: 'Ordered', pickupLabel: 'Ordered' },
-  { key: 'confirmed', status: 'confirmed', label: 'Confirmed', pickupLabel: 'Confirmed' },
-  { key: 'processing', status: 'processing', label: 'Processing', pickupLabel: 'Processing' },
+  { key: 'picking', status: 'picking', label: 'Picking', pickupLabel: 'Picking' },
+  { key: 'packing', status: 'packing', label: 'Packing', pickupLabel: 'Packing' },
   { key: 'shipped', status: 'shipped', label: 'In Transit', pickupLabel: 'Ready' },
   { key: 'delivered', status: 'delivered', label: 'Delivered', pickupLabel: 'Completed' },
 ];
 
 function stepIndex(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
-    pending: 0, confirmed: 1, processing: 2, shipped: 3, delivered: 4, completed: 4, cancelled: -1,
+    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, cancelled: -1,
   };
   return map[status] ?? 0;
 }

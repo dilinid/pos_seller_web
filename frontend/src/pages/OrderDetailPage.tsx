@@ -15,6 +15,8 @@ const OrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const orders = useMarketplaceStore((s) => s.orders);
+  const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
+  const loadOrder = useMarketplaceStore((s) => s.loadOrder);
   const profile = useSellerStore((s) => s.profile);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
   const reviewPeriods = useMarketplaceStore((s) => s.reviewPeriods);
@@ -29,6 +31,12 @@ const OrderDetailPage: React.FC = () => {
 
   const order = useMemo(() => orders.find((o) => o.id === orderId), [orders, orderId]);
 
+  useEffect(() => {
+    if (orderId && !orderId.startsWith('ORD-DEMO-')) {
+      loadOrder(orderId);
+    }
+  }, [orderId, loadOrder]);
+
   const orderReviews = useMemo(
     () => allReviews.filter((r) => r.orderId === orderId),
     [allReviews, orderId],
@@ -41,8 +49,7 @@ const OrderDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (!order) return;
-    const DELIVERED_STATUSES = new Set(['delivered', 'completed']);
-    const allDelivered = order.items.every((i) => DELIVERED_STATUSES.has(i.status));
+    const allDelivered = order.items.every((i) => i.status === 'delivered');
     const alreadyStarted = reviewPeriods.some(
       (rp) => rp.orderId === order.id && rp.sellerId === profile.id
     );
@@ -70,16 +77,20 @@ const OrderDetailPage: React.FC = () => {
       <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column' }}>
         <Navbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '8px' }}>🔍</div>
-            <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>Order not found</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              The order you're looking for doesn't exist.
-            </p>
-            <Link to="/orders" className="btn btn-primary" style={{ padding: '8px 20px', borderRadius: '20px', fontSize: '0.85rem' }}>
-              Back to Orders
-            </Link>
-          </div>
+          {ordersLoading ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading order…</p>
+          ) : (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '8px' }}>🔍</div>
+              <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>Order not found</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                The order you're looking for doesn't exist.
+              </p>
+              <Link to="/orders" className="btn btn-primary" style={{ padding: '8px 20px', borderRadius: '20px', fontSize: '0.85rem' }}>
+                Back to Orders
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     );

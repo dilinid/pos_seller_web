@@ -36,10 +36,10 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
   const storeName = seller.storeName || 'Our Store';
 
   const deliveryMethod = items[0]?.deliveryMethod ?? 'delivery';
-  const anyDelivered = items.some((i) => i.status === 'delivered' || i.status === 'completed');
-  const allDelivered = items.every((i) => i.status === 'delivered' || i.status === 'completed');
+  const anyDelivered = items.some((i) => i.status === 'delivered');
+  const allDelivered = items.every((i) => i.status === 'delivered');
   const allSameStatus = items.every((i) => i.status === items[0].status);
-  const groupStatus = allSameStatus ? items[0].status : (anyDelivered ? 'processing' : items[0]?.status ?? 'pending');
+  const groupStatus = allSameStatus ? items[0].status : (anyDelivered ? 'packing' : items[0]?.status ?? 'pending');
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalDeliveryFee = items.reduce((s, i) => s + i.deliveryFee, 0);
@@ -98,7 +98,7 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
           )}
           {items.map((item, idx) => {
             const existingReview = existingReviews.get(item.productId);
-            const canReview = (item.status === 'delivered' || item.status === 'completed') && !existingReview;
+            const canReview = item.status === 'delivered' && !existingReview;
             const isReviewing = reviewingProduct === item.productId;
 
             return (

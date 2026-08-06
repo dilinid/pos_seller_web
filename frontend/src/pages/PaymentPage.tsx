@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { CreditCard, Banknote, CheckCircle2, Wallet } from 'lucide-react';
+import { CreditCard, Banknote, CheckCircle2, Wallet, AlertCircle } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
 import { useCODStore } from '../stores/cod.store';
 import { calculateDeliveryFee } from '../utils/delivery.utils';
 import { formatCurrency } from '../utils/currency';
+import { placeOrder } from '../apis/marketplace.api';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { CardDetailsForm } from '../components/marketplace/CardDetailsForm';
@@ -34,6 +35,8 @@ const PaymentPage: React.FC = () => {
   const codApproved = useCODStore((s) => s.request.status === 'approved');
 
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [placeOrderError, setPlaceOrderError] = useState<string | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cardValid, setCardValid] = useState(false);
 
@@ -81,15 +84,37 @@ const PaymentPage: React.FC = () => {
 
   const handlePlaceOrder = () => {
     if (paymentMethod === 'card' && !cardValid) return;
-    executePayment();
+    void executePayment();
   };
 
-  const executePayment = () => {
+  const executePayment = async () => {
+    if (placingOrder) return;
+    setPlacingOrder(true);
+    setPlaceOrderError(null);
+
+    let placed;
+    try {
+      placed = await placeOrder({
+        items: checkedItems.map((item) => ({
+          itemCode: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price,
+        })),
+        deliveryMethod: deliveryOrPickupMethod,
+        deliveryAddress: deliveryOrPickupMethod === 'delivery' ? deliveryAddress : undefined,
+        deliveryFee: orderSummary.fee,
+        paymentMethod,
+      });
+    } catch (err: any) {
+      setPlacingOrder(false);
+      setPlaceOrderError(err?.response?.data?.detail ?? err?.message ?? 'Failed to place order. Please try again.');
+      return;
+    }
+
     const user = useAuthStore.getState().user;
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const orderId = `ORD-${dateStr}-${rand}`;
+    // Use the real backend order number so this optimistic entry reconciles with
+    // the row `loadOrders`/`loadOrder` will fetch from the server afterwards.
+    const orderId = placed.ordNo;
 
     const items = checkedItems.map((item) => ({
       productId: item.product.id,
@@ -103,13 +128,13 @@ const PaymentPage: React.FC = () => {
       sellerName: profile.storeName || 'Our Store',
       deliveryMethod: deliveryOrPickupMethod,
       deliveryFee: orderSummary.fee,
-      status: 'confirmed' as const,
+      status: 'pending' as const,
     }));
 
     addOrder({
       id: orderId,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      createdAt: placed.createdAt,
+      updatedAt: placed.createdAt,
       items,
       buyerName: user?.name ?? 'Unknown',
       buyerEmail: user?.email,
@@ -125,6 +150,7 @@ const PaymentPage: React.FC = () => {
 
     removeCheckedItems();
     setDirectBuyItem(null);
+    setPlacingOrder(false);
     setOrderPlaced(true);
     redirectTimer.current = setTimeout(() => {
       resetCheckout();
@@ -275,19 +301,31 @@ const PaymentPage: React.FC = () => {
                     </span>
                   </div>
 
+                  {placeOrderError && (
+                    <div style={{
+                      marginTop: '14px', padding: '10px 12px', borderRadius: '10px',
+                      background: '#fef2f2', border: '1px solid #fecaca',
+                      display: 'flex', alignItems: 'flex-start', gap: '8px',
+                      fontSize: '0.8rem', color: '#dc2626',
+                    }}>
+                      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <span>{placeOrderError}</span>
+                    </div>
+                  )}
+
                   <button
                     onClick={handlePlaceOrder}
-                    disabled={paymentMethod === 'card' && !cardValid}
+                    disabled={(paymentMethod === 'card' && !cardValid) || placingOrder}
                     className="btn btn-primary"
                     style={{
                       width: '100%', borderRadius: '24px', padding: '14px',
                       marginTop: '18px', fontSize: '1rem',
-                      opacity: paymentMethod === 'card' && !cardValid ? 0.5 : 1,
-                      cursor: paymentMethod === 'card' && !cardValid ? 'not-allowed' : 'pointer',
+                      opacity: (paymentMethod === 'card' && !cardValid) || placingOrder ? 0.5 : 1,
+                      cursor: (paymentMethod === 'card' && !cardValid) || placingOrder ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <CheckCircle2 size={18} />
-                    Pay Now — {formatCurrency(grandTotal)}
+                    {placingOrder ? 'Placing Order…' : `Pay Now — ${formatCurrency(grandTotal)}`}
                   </button>
 
                   <p style={{

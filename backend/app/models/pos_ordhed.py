@@ -7,6 +7,7 @@ from sqlalchemy import DECIMAL
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
+from app.models.pos_order_type import PosOrderType
 
 class OrderStatus(str, PyEnum):
     PENDING = "pending"
@@ -21,11 +22,12 @@ class PosOrdHed(SQLModel, table=True):
     __tablename__ = "pos_ordhed"
 
     OrdNo: str = Field(primary_key=True, max_length=7)
+    type: str = Field(default="POS", max_length=20, foreign_key="pos_order_type.type_code")
     is_invoiced: bool = Field(default=False)
     InvNo: Optional[str] = Field(default=None, max_length=7)
-    # values_callable persists/reads the enum's lowercase .value (matching the
-    # DB's `enum('pending',...)` column) instead of SQLAlchemy's default of
-    # matching by member .name (e.g. "PENDING").
+    # The pos_ordhed.status DB column stores the enum members' lowercase *values*
+    # (e.g. "pending"), not their uppercase names — values_callable makes SQLAlchemy
+    # read/write against OrderStatus.value instead of its default of OrderStatus.name.
     status: OrderStatus = Field(
         default=OrderStatus.PENDING,
         sa_type=SAEnum(OrderStatus, values_callable=lambda enum_cls: [member.value for member in enum_cls]),

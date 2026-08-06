@@ -7,7 +7,9 @@ interface OrderStatusBadgeProps {
 }
 
 export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({ status, deliveryMethod }) => {
-  const meta = ORDER_STATUS_META[status];
+  // Falls back to `pending`'s styling for any status that isn't (or is no longer) a
+  // recognized OrderStatus, rather than crashing the whole page on stale/unexpected data.
+  const meta = ORDER_STATUS_META[status] ?? ORDER_STATUS_META.pending;
   const label = deliveryMethod === 'pickup' && PICKUP_STATUS_LABELS[status]
     ? PICKUP_STATUS_LABELS[status]
     : meta.label;
@@ -30,7 +32,7 @@ interface PaymentStatusBadgeProps {
 }
 
 export const PaymentStatusBadge: React.FC<PaymentStatusBadgeProps> = ({ status }) => {
-  const meta = PAYMENT_STATUS_META[status];
+  const meta = PAYMENT_STATUS_META[status] ?? PAYMENT_STATUS_META.pending;
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '4px',
