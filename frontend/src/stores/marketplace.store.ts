@@ -5,6 +5,7 @@ import { PRODUCT_CATALOG } from '../data/products';
 import { MARKETPLACE_CATEGORIES } from '../data/categories';
 import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchOrderById, mapOrderRawToOrder } from '../apis/marketplace.api';
 import { useSellerStore } from './seller.store';
+import { ORDER_STATUS_VALUES } from '../data/order-status';
 
 /** Backend orders are the source of truth for any id they cover; other local-only
  * entries (seller demo data, orders whose backend fetch hasn't landed yet) pass through. */
@@ -678,19 +679,24 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<MarketplaceStoreState> | undefined;
-        const migratedOrders: Order[] = (p?.orders ?? []).map((o) => ({
-          ...o,
-          updatedAt: (o as any).updatedAt ?? o.createdAt,
-          buyerName: (o as any).buyerName ?? 'Unknown',
-          buyerPhone: (o as any).buyerPhone,
-          buyerEmail: (o as any).buyerEmail,
-          items: o.items.map((item) => ({
-            ...item,
-            trackingNumber: (item as any).trackingNumber,
-            trackingCarrier: (item as any).trackingCarrier,
-            sellerNotes: (item as any).sellerNotes,
-          })),
-        }));
+        // Orders persisted before an OrderStatus redesign can carry status strings that no
+        // longer exist in ORDER_STATUS_META — rendering those crashes OrderStatusBadge, so
+        // drop them here rather than letting stale localStorage data blank the whole app.
+        const migratedOrders: Order[] = (p?.orders ?? [])
+          .filter((o) => o.items.every((item) => (ORDER_STATUS_VALUES as string[]).includes(item.status)))
+          .map((o) => ({
+            ...o,
+            updatedAt: (o as any).updatedAt ?? o.createdAt,
+            buyerName: (o as any).buyerName ?? 'Unknown',
+            buyerPhone: (o as any).buyerPhone,
+            buyerEmail: (o as any).buyerEmail,
+            items: o.items.map((item) => ({
+              ...item,
+              trackingNumber: (item as any).trackingNumber,
+              trackingCarrier: (item as any).trackingCarrier,
+              sellerNotes: (item as any).sellerNotes,
+            })),
+          }));
         const oldUserReviews = (p as any)?.userReviews ?? [];
         const migratedReviews: UserReview[] = (p?.allReviews ?? []).map((r) => ({
           ...r,
