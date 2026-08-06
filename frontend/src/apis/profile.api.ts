@@ -26,8 +26,14 @@ export const updateUserProfile = async (
   await api.put(`${BASE_URL}/client/me`, data);
 };
 
+// District/DS-division/GN-division lookups are served by this app's own backend
+// (seeded once from openadmindata.org) rather than the external member portal —
+// that service is a separate, often-unreachable dependency and doesn't need to
+// gate this data.
+const LOCATION_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
 export async function fetchDistricts(): Promise<District[]> {
-  const response = await api.get(`${BASE_URL}/location/districts`);
+  const response = await api.get(`${LOCATION_BASE_URL}/location/districts`);
   return response.data;
 }
 
@@ -35,7 +41,7 @@ export async function fetchDsDivisions(
   districtId: string,
 ): Promise<DsDivision[]> {
   const response = await api.get(
-    `${BASE_URL}/location/district/${districtId}/gs-divisions`,
+    `${LOCATION_BASE_URL}/location/districts/${districtId}/ds-divisions`,
   );
   return response.data;
 }
@@ -44,7 +50,7 @@ export async function fetchGnDivisions(
   DsDivisionId: string,
 ): Promise<DsDivision[]> {
   const response = await api.get(
-    `${BASE_URL}/location/gs-division/${DsDivisionId}/gn-divisions`,
+    `${LOCATION_BASE_URL}/location/ds-divisions/${DsDivisionId}/gn-divisions`,
   );
   return response.data;
 }

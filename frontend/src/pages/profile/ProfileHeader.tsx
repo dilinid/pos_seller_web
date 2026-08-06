@@ -95,7 +95,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         }}>
           <BadgeCheck size={14} color="var(--primary)" />
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            Cooperative Member
+            Member
           </span>
         </div>
       </div>

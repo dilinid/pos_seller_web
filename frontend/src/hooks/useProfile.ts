@@ -6,6 +6,7 @@ import {
   fetchUserProfile,
   updateUserProfile,
 } from "../apis/profile.api";
+import { fetchMyContactInfo, updateMyContactInfo } from "../apis/auth.api";
 import type {
   District,
   DsDivision,
@@ -68,14 +69,37 @@ export function useProfile() {
     e.preventDefault();
     setSaveLoading(true);
     try {
+      // Gender, District/DS/GN Division, and Address are persisted to pos_customer
+      // via this app's own backend (address is split across cus_add1-4 there).
+      const contact = await updateMyContactInfo({
+        gender: profile.gender,
+        districtId: profile.district?.id ?? "",
+        dsDivisionId: profile.dsDivision?.id ?? "",
+        gnDivisionId: profile.gnDivision?.id ?? "",
+        address: profile.address,
+      });
+
+      // Zipcode/profile picture still go through the external member portal —
+      // best-effort, since that service isn't reachable in every environment and
+      // shouldn't block saving the update above.
       await updateUserProfile({
         profilePicture: profileImg ? await convertImage(profileImg) : undefined,
-        gender: profile.gender,
-        gnDivisionId: profile.gnDivision?.id,
-        address: profile.address,
         zipcode: profile.zipcode,
-      });
-      setUser(profile);
+      }).catch((err) => console.error(err));
+
+      // `contact` is the fresh post-save response, not a partial fetch — use its
+      // values as-is (including `null` for a field the user just cleared) rather
+      // than falling back to the pre-save `profile`, which would resurrect it.
+      const updated: UserProfile = {
+        ...profile,
+        gender: contact.gender ?? "",
+        address: contact.address ?? "",
+        district: contact.district ?? undefined,
+        dsDivision: contact.dsDivision ?? undefined,
+        gnDivision: contact.gnDivision ?? undefined,
+      };
+      setUser(updated);
+      setProfile(updated);
       setSaveSuccess(true);
       setTimeout(() => {
         setSaveSuccess(false);
@@ -83,7 +107,7 @@ export function useProfile() {
     } catch (err) {
       if (axios.isAxiosError(err)) {
         alert(
-          err.response?.data.message || "Failed to update profile registry",
+          err.response?.data?.detail || err.response?.data?.message || "Failed to update profile registry",
         );
       } else {
         alert("Failed to update profile registry");
@@ -198,16 +222,44 @@ export function useProfile() {
       if (!userSession) return;
       try {
         setLoading(true);
-        const res = await getUserProfile(userSession.username);
-        if (res) {
-          setUser(res);
-        }
+
+        // These two are independent sources — fetched separately so that the
+        // external member portal being unreachable doesn't also block Full Legal
+        // Name / Active Phone Number / Email Address, which come from this app's
+        // own backend (pos_customer) and don't depend on that service at all.
+        const [contact, externalProfile] = await Promise.all([
+          fetchMyContactInfo().catch((err) => {
+            console.error(err);
+            return null;
+          }),
+          getUserProfile(userSession.username).catch((err) => {
+            console.error(err);
+            return undefined;
+          }),
+        ]);
+
+        const merged: UserProfile = {
+          ...defaultProfile,
+          ...externalProfile,
+          name: contact?.name ?? externalProfile?.name ?? "",
+          phone: contact?.phone ?? externalProfile?.phone ?? "",
+          email: contact?.email ?? externalProfile?.email ?? "",
+          gender: contact?.gender ?? externalProfile?.gender ?? "",
+          address: contact?.address ?? externalProfile?.address ?? "",
+          // District/DS/GN Division are sourced from this app's own backend —
+          // fall back to the external member portal only if unset there too.
+          district: contact?.district ?? externalProfile?.district ?? undefined,
+          dsDivision: contact?.dsDivision ?? externalProfile?.dsDivision ?? undefined,
+          gnDivision: contact?.gnDivision ?? externalProfile?.gnDivision ?? undefined,
+        };
+        setUser(merged);
+        setProfile(merged);
 
         getDistricts();
-        if (profile.district) {
-          getGsDivisions(profile.district.id);
-          if (profile.dsDivision) {
-            getGnDivisions(profile.dsDivision.id);
+        if (merged.district) {
+          getGsDivisions(merged.district.id);
+          if (merged.dsDivision) {
+            getGnDivisions(merged.dsDivision.id);
           }
         }
       } catch (err) {
