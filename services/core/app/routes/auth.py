@@ -42,6 +42,9 @@ def _create_access_token(user: ITUserMaster) -> str:
         "username": user.user_name,
         "name": user.name,
         "user_role": user.user_role,
+        # Embedded so downstream services (Ordering) can resolve the linked
+        # pos_customer row from the token alone, with no DB lookup of their own.
+        "customer_id": user.customer_id,
         "exp": expire,
         "type": "access",
     }
