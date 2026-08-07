@@ -1,0 +1,13 @@
+# Per-service env files (each services/*/.env, root .env) — never commit real
+# secrets/DB credentials. Only *.env.example files are tracked.
+.env
+services/*/.env
+libs/*/.env
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
