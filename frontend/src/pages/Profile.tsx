@@ -60,6 +60,7 @@ const Profile: React.FC = () => {
             onImageClick={handleProfileImageClick}
             onImageChange={handleProfileImageChange}
             memberId={user?.memberId}
+            joinDate={user?.joinDate}
           />
 
           <PersonalInfoSection

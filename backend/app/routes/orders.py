@@ -14,10 +14,14 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models.it_user_master import ITUserMaster
 from app.models.pos_customer import PosCustomer
+from app.models.pos_invdtl import PosInvDtl
+from app.models.pos_invhed import PosInvHed
+from app.models.pos_invpay import PosInvPay
 from app.models.pos_item_resource import PosItemResource
 from app.models.pos_itemlots import PosItemLots
 from app.models.pos_orddtl import PosOrdDtl
 from app.models.pos_ordhed import OrderStatus, PosOrdHed
+from app.models.pos_paymode import PosPayMode
 from app.routes.auth import get_current_user
 from app.seller_utils import get_store_id
 
@@ -27,6 +31,18 @@ ORDER_TYPE_ONLINE = "ONL"
 ORD_NO_PREFIX = "O"
 ORD_NO_DIGITS = 6  # prefix + digits fills the 7-char OrdNo column
 MAX_ORD_NO_ATTEMPTS = 5
+
+# pos_ordhed.InvNo caps invoice numbers at 7 chars, so online invoice numbers get
+# their own short prefix — mirrors ORD_NO_PREFIX's scheme, kept out of the external
+# POS application's own (longer) invoice numbering.
+INV_NO_PREFIX = "N"
+INV_NO_DIGITS = 6
+
+# Card payments are captured immediately at checkout (no real gateway — see
+# CardDetailsForm), so they're recorded in pos_invpay under this pos_paymode.pay_code.
+# The paytype description stored on each payment row is looked up from pos_paymode
+# itself (not hardcoded) so it always matches that reference table.
+CARD_PAY_CODE = "CRD"
 
 # pos_ordhed has no dedicated payment-method column. `pricemode` is unused by
 # the external POS application for online ('ONL') orders, so it doubles as
@@ -125,7 +141,9 @@ def _item_thumbnail(session: Session, item_code: Optional[str]) -> Optional[str]
 def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> OrderOut:
     lines = session.exec(
         select(PosOrdDtl)
-        .where(PosOrdDtl.OrdNo == order.OrdNo, PosOrdDtl.cancel != True)  # noqa: E712
+        # `cancel != True` excludes NULL rows under SQL's three-valued logic (NULL != True
+        # is NULL, not true) — isnot(True) correctly keeps both NULL and False as "active".
+        .where(PosOrdDtl.OrdNo == order.OrdNo, PosOrdDtl.cancel.isnot(True))
         .order_by(PosOrdDtl.lineno)
     ).all()
 
@@ -198,6 +216,23 @@ def _generate_ord_no(session: Session) -> str:
     return f"{ORD_NO_PREFIX}{next_num:0{ORD_NO_DIGITS}d}"
 
 
+def _generate_inv_no(session: Session) -> str:
+    """Sequential InvNo under a dedicated prefix, independent of the external POS
+    application's own invoice numbering of the shared pos_invhed table."""
+    stmt = (
+        select(PosInvHed.InvNo)
+        .where(PosInvHed.InvNo.like(f"{INV_NO_PREFIX}%"))
+        .order_by(PosInvHed.InvNo.desc())
+    )
+    next_num = 1
+    for inv_no in session.exec(stmt):
+        suffix = inv_no[len(INV_NO_PREFIX):]
+        if suffix.isdigit():
+            next_num = int(suffix) + 1
+            break
+    return f"{INV_NO_PREFIX}{next_num:0{INV_NO_DIGITS}d}"
+
+
 # ── endpoints ────────────────────────────────────────────────────────────────
 
 
@@ -239,6 +274,15 @@ def place_order(
 
     address = (body.deliveryAddress or "").strip()[:200] if body.deliveryMethod == "delivery" else None
 
+    card_paymode: Optional[PosPayMode] = None
+    if body.paymentMethod == "card":
+        card_paymode = session.get(PosPayMode, CARD_PAY_CODE)
+        if not card_paymode:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Card payment mode is not configured",
+            )
+
     last_error: Optional[Exception] = None
     for _ in range(MAX_ORD_NO_ATTEMPTS):
         ord_no = _generate_ord_no(session)
@@ -270,9 +314,12 @@ def place_order(
             last_error = exc
             continue
 
-        for lineno, item in enumerate(body.items, start=1):
-            qty = Decimal(str(item.quantity))
-            price = Decimal(str(item.price))
+        line_items = [
+            (lineno, item, Decimal(str(item.quantity)), Decimal(str(item.price)))
+            for lineno, item in enumerate(body.items, start=1)
+        ]
+
+        for lineno, item, qty, price in line_items:
             session.add(
                 PosOrdDtl(
                     OrdNo=ord_no,
@@ -284,10 +331,66 @@ def place_order(
                     qty=qty,
                     sprice=price,
                     amount=qty * price,
+                    cancel=False,
                 )
             )
 
-        session.commit()
+        if body.paymentMethod == "card":
+            inv_no = _generate_inv_no(session)
+            order.InvNo = inv_no
+            session.add(
+                PosInvHed(
+                    InvNo=inv_no,
+                    created_at=now,
+                    created_by_id=created_by_id,
+                    storeId=store_id,
+                    member=customer.cus_code,
+                    pricemode=PAYMENT_METHOD_TO_PRICEMODE[body.paymentMethod],
+                    refno=ord_no,
+                    grossamount=gross_amount,
+                    addamount=delivery_fee,
+                    netamount=net_amount,
+                    dueamount=Decimal("0"),
+                    payamount=net_amount,
+                    cancel=False,
+                )
+            )
+            for lineno, item, qty, price in line_items:
+                session.add(
+                    PosInvDtl(
+                        InvNo=inv_no,
+                        lineno=lineno,
+                        created_at=now,
+                        created_by_id=created_by_id,
+                        storeId=store_id,
+                        itemcode=item.itemCode,
+                        qty=qty,
+                        sprice=price,
+                        amount=qty * price,
+                        cancel=False,
+                    )
+                )
+            session.add(
+                PosInvPay(
+                    Invno=inv_no,
+                    paytype=card_paymode.pay_code,
+                    created_at=now,
+                    created_by_id=created_by_id,
+                    storeId=store_id,
+                    paytypedesc=card_paymode.pay_typedesc,
+                    payamt=net_amount,
+                    amount=net_amount,
+                    cancel=False,
+                )
+            )
+
+        try:
+            session.commit()
+        except IntegrityError as exc:
+            session.rollback()
+            last_error = exc
+            continue
+
         session.refresh(order)
         return PlaceOrderResponse(
             ordNo=order.OrdNo,
@@ -333,3 +436,30 @@ def get_my_order(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
     return _to_order_out(session, order, customer)
+
+
+@router.get("/seller/orders", response_model=list[OrderOut])
+def list_seller_orders(
+    session: Session = Depends(get_session),
+    current_user: ITUserMaster = Depends(get_current_user),
+):
+    """Every online order for this store, across all customers — the seller-side
+    counterpart to a buyer's own order history above. Backs the seller order and
+    payment management pages."""
+    store_id = get_store_id(session)
+
+    stmt = select(PosOrdHed).where(PosOrdHed.type == ORDER_TYPE_ONLINE)
+    if store_id:
+        stmt = stmt.where(PosOrdHed.storeId == store_id)
+    stmt = stmt.order_by(PosOrdHed.created_at.desc())
+    orders = session.exec(stmt).all()
+
+    results: list[OrderOut] = []
+    for order in orders:
+        customer = (
+            session.exec(select(PosCustomer).where(PosCustomer.cus_code == order.member)).first()
+            if order.member
+            else None
+        )
+        results.append(_to_order_out(session, order, customer or PosCustomer()))
+    return results

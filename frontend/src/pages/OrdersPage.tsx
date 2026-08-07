@@ -40,8 +40,7 @@ const OrdersPage: React.FC = () => {
   }, [loadOrders]);
 
   const filteredOrders = useMemo(() => {
-    // Exclude seller-dashboard demo orders (seeded on the seller side, not this buyer's own).
-    let list = orders.filter((o) => !o.id.startsWith('ORD-DEMO-'));
+    let list = orders;
     if (activeTab !== 'all') {
       list = list.filter((o) => {
         const itemStatuses = o.items.map((i) => i.status);

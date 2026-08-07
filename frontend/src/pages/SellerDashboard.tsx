@@ -1,16 +1,33 @@
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, ClipboardList, DollarSign, Star, PlusCircle, User, BarChart3 } from 'lucide-react';
 import { useSellerStore } from '../stores/seller.store';
+import { useMarketplaceStore } from '../stores/marketplace.store';
 import { formatCurrency } from '../utils/currency';
 
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const profile = useSellerStore((s) => s.profile);
+  const orders = useMarketplaceStore((s) => s.orders);
+  const loadSellerOrders = useMarketplaceStore((s) => s.loadSellerOrders);
+
+  useEffect(() => {
+    loadSellerOrders();
+  }, [loadSellerOrders]);
+
+  const sellerOrders = useMemo(
+    () => orders.filter((o) => o.items.some((i) => i.sellerId === profile.id)),
+    [orders, profile.id]
+  );
+  const revenue = useMemo(
+    () => sellerOrders.reduce((sum, o) => sum + o.grandTotal, 0),
+    [sellerOrders]
+  );
 
   const STATS = [
     { icon: Package, value: profile.productCount, label: 'Products', color: 'var(--primary)', bg: 'var(--primary-light)' },
-    { icon: ClipboardList, value: 0, label: 'Orders', color: 'var(--accent)', bg: 'var(--accent-light)' },
-    { icon: DollarSign, value: formatCurrency(0), label: 'Revenue', color: 'var(--warning)', bg: '#fffbeb' },
+    { icon: ClipboardList, value: sellerOrders.length, label: 'Orders', color: 'var(--accent)', bg: 'var(--accent-light)' },
+    { icon: DollarSign, value: formatCurrency(revenue), label: 'Revenue', color: 'var(--warning)', bg: '#fffbeb' },
     { icon: Star, value: profile.rating, label: 'Rating', color: '#f59e0b', bg: '#fffbeb' },
   ];
 

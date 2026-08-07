@@ -9,6 +9,7 @@ interface ProfileHeaderProps {
   onImageClick: () => void;
   onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   memberId?: string;
+  joinDate?: string;
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -20,6 +21,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onImageClick,
   onImageChange,
   memberId,
+  joinDate,
 }) => {
   const hasImage = !!(profilePicture || profileImg);
 
@@ -93,7 +95,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         }}>
           <BadgeCheck size={14} color="var(--primary)" />
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            Cooperative Member
+            Member
           </span>
         </div>
       </div>
@@ -115,16 +117,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             </span>
           </div>
         )}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '6px',
-          padding: '6px 12px', borderRadius: '8px',
-          background: 'var(--bg-secondary)', fontSize: '0.75rem',
-        }}>
-          <Calendar size={13} color="var(--text-muted)" />
-          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
-            Member since 2024
-          </span>
-        </div>
+        {joinDate && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 12px', borderRadius: '8px',
+            background: 'var(--bg-secondary)', fontSize: '0.75rem',
+          }}>
+            <Calendar size={13} color="var(--text-muted)" />
+            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Member since {new Date(joinDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

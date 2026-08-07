@@ -155,6 +155,13 @@ export async function fetchMyOrders(): Promise<OrderRaw[]> {
   return response.data;
 }
 
+/** Every online order for the store, across all customers — the seller-side
+ * counterpart to fetchMyOrders. */
+export async function fetchSellerOrders(): Promise<OrderRaw[]> {
+  const response = await api.get<OrderRaw[]>('/api/marketplace/seller/orders');
+  return response.data;
+}
+
 export async function fetchOrderById(orderId: string): Promise<OrderRaw> {
   const response = await api.get<OrderRaw>(`/api/marketplace/orders/${encodeURIComponent(orderId)}`);
   return response.data;

@@ -19,51 +19,6 @@ function makePromotion(data: {
   };
 }
 
-const SEED_PROMOTIONS: Promotion[] = [
-  {
-    id: 'promo_seed_hero',
-    sellerId: 's1',
-    sellerName: 'Green Valley Organics',
-    title: 'Fresh Organic Harvest',
-    description: 'Get 15% off on all organic produce. Use code ORGANIC15 at checkout.',
-    icon: '🥬',
-    bgColor: 'linear-gradient(135deg, #166534, #22c55e)',
-    placement: 'hero',
-    status: 'approved',
-    startDate: '2026-01-01T00:00:00.000Z',
-    endDate: '2027-12-31T00:00:00.000Z',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'promo_seed_sidebar',
-    sellerId: 's3',
-    sellerName: 'Fresh Brew Co.',
-    title: 'New Coffee Collection',
-    description: 'Explore our latest artisan blends. Free shipping on orders over Rs. 50.',
-    icon: '☕',
-    bgColor: 'linear-gradient(135deg, #92400e, #d97706)',
-    placement: 'sidebar',
-    status: 'approved',
-    startDate: '2026-01-01T00:00:00.000Z',
-    endDate: '2027-12-31T00:00:00.000Z',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'promo_seed_popup',
-    sellerId: 's4',
-    sellerName: 'Artisan Bakery',
-    title: 'Welcome Offer',
-    description: '25% off your first order! Minimum purchase Rs. 50. Fresh baked daily.',
-    icon: '🥐',
-    bgColor: 'linear-gradient(135deg, #991b1b, #ef4444)',
-    placement: 'popup',
-    status: 'approved',
-    startDate: '2026-01-01T00:00:00.000Z',
-    endDate: '2027-12-31T00:00:00.000Z',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-];
-
 interface PromotionStoreState {
   promotions: Promotion[];
   submitPromotion: (data: {
@@ -78,7 +33,7 @@ interface PromotionStoreState {
 export const usePromotionStore = create<PromotionStoreState>()(
   persist(
     (set, get) => ({
-      promotions: SEED_PROMOTIONS,
+      promotions: [],
 
       submitPromotion: (data) => {
         const promo = makePromotion(data);
@@ -110,6 +65,17 @@ export const usePromotionStore = create<PromotionStoreState>()(
     {
       name: 'promotions',
       partialize: (state) => ({ promotions: state.promotions }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<PromotionStoreState> | undefined;
+        // Strip the fake seed promotions previously shipped with this store so
+        // browsers that already persisted them don't keep showing fake banners.
+        const SEED_IDS = new Set(['promo_seed_hero', 'promo_seed_sidebar', 'promo_seed_popup']);
+        return {
+          ...current,
+          ...p,
+          promotions: (p?.promotions ?? []).filter((promo) => !SEED_IDS.has(promo.id)),
+        };
+      },
     },
   ),
 );

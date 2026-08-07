@@ -2,8 +2,7 @@ from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.models.pos_customer_group import PosCustomerGroup
-
+from app.models.pos_customer_group import PosCustomerGroup  
 
 class PosCustomer(SQLModel, table=True):
     __tablename__ = "pos_customer"
@@ -23,6 +22,9 @@ class PosCustomer(SQLModel, table=True):
     cus_add2: Optional[str] = Field(default=None, max_length=40)
     cus_add3: Optional[str] = Field(default=None, max_length=40)
     cus_add4: Optional[str] = Field(default=None, max_length=40)
+    cus_district: Optional[str] = Field(default=None, max_length=60)
+    cus_dsdivision: Optional[str] = Field(default=None, max_length=60)
+    cus_gndivision: Optional[str] = Field(default=None, max_length=60)
     cus_tep1: Optional[str] = Field(default=None, max_length=30)
     cus_tep2: Optional[str] = Field(default=None, max_length=30)
     cus_email: Optional[str] = Field(default=None, max_length=40)
