@@ -1,3 +1,6 @@
+"""Owned by: external legacy POS application. Not written by this repo today;
+kept for completeness/shared-read."""
+
 from datetime import datetime
 from typing import Optional
 

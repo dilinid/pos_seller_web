@@ -1,3 +1,6 @@
+"""Owned by: Core (location) service. Reference data, shared-read by Core's
+auth routes (customer contact district lookups)."""
+
 from typing import Optional
 
 from sqlmodel import Field, SQLModel

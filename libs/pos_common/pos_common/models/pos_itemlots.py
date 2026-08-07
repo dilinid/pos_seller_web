@@ -1,3 +1,6 @@
+"""Owned by: external legacy POS application (inventory lots). Shared-read
+only — every service that displays an item name/uom/location reads this."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional

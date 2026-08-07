@@ -1,8 +1,13 @@
+"""Owned by: Core (auth) service — signup/profile-edit writes this. Shared-read
+by Ordering (buyer contact info) and the fulfillment services (customer name)."""
+
 from datetime import datetime
 from typing import Optional
+
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.models.pos_customer_group import PosCustomerGroup  
+from pos_common.models.pos_customer_group import PosCustomerGroup  # noqa: F401
+
 
 class PosCustomer(SQLModel, table=True):
     __tablename__ = "pos_customer"

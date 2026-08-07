@@ -1,3 +1,6 @@
+"""Owned by: external legacy POS application (payment mode reference data).
+Shared-read only — used by Ordering to record how a card payment was made."""
+
 from typing import Optional
 
 from sqlmodel import Field, SQLModel

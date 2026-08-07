@@ -1,3 +1,6 @@
+"""Owned by: Marketplace/Catalog service (folded into Core in Phase 1) — item
+image/video approvals. Shared-read by Ordering for product thumbnails."""
+
 from datetime import datetime
 from typing import Optional
 

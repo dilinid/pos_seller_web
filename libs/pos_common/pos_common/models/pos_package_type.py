@@ -1,3 +1,5 @@
+"""Owned by: Packing service (package type reference data used at pack time)."""
+
 from decimal import Decimal
 from typing import Optional
 

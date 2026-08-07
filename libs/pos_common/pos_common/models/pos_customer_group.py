@@ -1,10 +1,13 @@
+"""Owned by: Core (auth) service. Shared-read by others (e.g. Ordering reads
+PosCustomer, which references this)."""
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from app.models.pos_customer import PosCustomer
+    from pos_common.models.pos_customer import PosCustomer
 
 
 class PosCustomerGroup(SQLModel, table=True):

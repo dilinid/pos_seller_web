@@ -1,8 +1,10 @@
+"""Owned by: Core (location) service. Reference data, shared-read elsewhere."""
+
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-from app.models.sl_district import SlDistrict  # noqa: F401 — must be imported so SQLModel.metadata has sl_district registered before this table's FK is resolved
+from pos_common.models.sl_district import SlDistrict  # noqa: F401 — must be imported so SQLModel.metadata has sl_district registered before this table's FK is resolved
 
 
 class SlDsDivision(SQLModel, table=True):

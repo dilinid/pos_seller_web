@@ -1,3 +1,6 @@
+"""Owned by: external legacy POS application (item group reference data).
+Shared-read only."""
+
 from datetime import datetime
 from typing import Optional
 from sqlmodel import SQLModel, Field

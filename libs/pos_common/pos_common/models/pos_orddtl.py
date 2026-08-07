@@ -1,3 +1,7 @@
+"""Owned by: Ordering service (including the `pickqty` column, which Picking
+must update via Ordering's /internal/orders/{ord_no}/pick-quantities endpoint,
+never by writing this table directly)."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional

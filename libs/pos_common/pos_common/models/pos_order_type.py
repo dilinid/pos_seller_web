@@ -1,3 +1,6 @@
+"""Owned by: external legacy POS application (order type reference data).
+Shared-read only — pos_ordhed.type has an FK to this table."""
+
 from sqlmodel import Field, SQLModel
 
 

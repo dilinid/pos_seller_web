@@ -1,3 +1,7 @@
+"""Owned by: Core (auth) service. Other services must not write this table —
+identity/role checks should use pos_common.auth.TokenClaims from the verified
+JWT instead of querying it_user_master directly."""
+
 from datetime import datetime
 from typing import Optional
 

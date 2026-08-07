@@ -1,3 +1,5 @@
+"""Owned by: Picking service."""
+
 from datetime import datetime
 from typing import Optional
 

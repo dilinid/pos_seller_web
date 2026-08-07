@@ -1,3 +1,5 @@
+"""Owned by: external legacy POS application. Shared-read only."""
+
 from sqlmodel import Field, SQLModel
 
 

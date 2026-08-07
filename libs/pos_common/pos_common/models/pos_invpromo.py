@@ -1,3 +1,6 @@
+"""Owned by: external legacy POS application. Not written by this repo today
+(no route creates rows here); kept for completeness/shared-read."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional

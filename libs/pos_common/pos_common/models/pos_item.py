@@ -1,3 +1,5 @@
+"""Owned by: external legacy POS application (item master). Shared-read only."""
+
 from datetime import datetime
 from typing import Optional
 

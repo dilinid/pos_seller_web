@@ -1,4 +1,6 @@
-from datetime import datetime
+"""Owned by: external legacy POS application (store configuration). Shared-read
+only — no service in this repo writes it."""
+
 from decimal import Decimal
 from typing import Optional
 from sqlalchemy import DECIMAL

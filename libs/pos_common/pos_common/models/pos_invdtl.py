@@ -1,3 +1,5 @@
+"""Owned by: Ordering service (card-payment invoicing at checkout)."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional

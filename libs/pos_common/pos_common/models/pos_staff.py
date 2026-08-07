@@ -1,3 +1,6 @@
+"""Owned by: Staff service (folded into Core in Phase 1). Shared-read by
+Picking/Packing for picker/packer validation and display names."""
+
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
