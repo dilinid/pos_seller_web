@@ -6,9 +6,13 @@ without provisioning a MySQL schema; it exercises the same SQLModel code paths
 Packing runs in production. SQLite doesn't enforce the DECIMAL/Enum column
 types as strictly as MySQL, but the business logic under test (status
 transitions, 400/404 branches) is unaffected by that difference.
+
+Also mocks pos_common.http_client.internal_patch (see Picking's conftest.py
+for the same pattern) so tests don't need a real Ordering service running.
 """
 
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -54,7 +58,16 @@ def fake_user():
 
 
 @pytest.fixture()
-def client(engine, fake_user):
+def mock_ordering():
+    """Default: Ordering's internal endpoints always succeed. Yields the mock
+    so a test can inspect call args or override side_effect for failure cases."""
+    with patch("app.routes.packing.internal_patch") as mocked:
+        mocked.return_value = {"ordNo": "O000001"}
+        yield mocked
+
+
+@pytest.fixture()
+def client(engine, fake_user, mock_ordering):
     app = create_app()
 
     def _get_session():
@@ -93,6 +106,11 @@ def unpicked_order(session):
 
 @pytest.fixture()
 def picked_order(session, unpicked_order):
+    # Confirming a pick advances the order to "packing" in the real flow (Picking
+    # calls Ordering's /internal/orders/* API) — mirror that here so ship's
+    # expectedCurrentStatus=PACKING compare-and-swap reflects a realistic state.
+    unpicked_order.status = OrderStatus.PACKING
+    session.add(unpicked_order)
     session.add(
         PosItemPick(
             itempick_ordno="O000001",

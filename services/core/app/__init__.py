@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,8 +17,16 @@ from app.routes.staff import router as staff_router
 
 logger = logging.getLogger(__name__)
 
-# Resolves to the external POS application's uploads root when UPLOADS_DIR is set;
-# otherwise falls back to the local backend/uploads/ dev fixture folder.
+# The slim base image has no /etc/mime.types, so Python's mimetypes module can't
+# guess .webp (falls back to text/plain, which browsers refuse to render as an
+# <img>) for item-resource uploads served below.
+mimetypes.add_type("image/webp", ".webp")
+
+# Resolves to the external POS application's uploads root when UPLOADS_DIR is set
+# (see docker-compose.yml, which mounts the legacy monolith's backend/uploads/ here
+# for local dev); otherwise falls back to the local services/core/uploads/ dev
+# fixture folder, which is empty unless something has been uploaded through this
+# service directly.
 UPLOADS_DIR = (
     Path(settings.UPLOADS_DIR)
     if settings.UPLOADS_DIR

@@ -6,7 +6,7 @@ import {
   fetchPackingDetail,
   markPacked,
   updatePackingRemarks,
-  markDelivered,
+  markShipped,
   updateDeliveryDetails,
   type PackageType,
   type PackingOrder,
@@ -17,7 +17,7 @@ import { fetchStaff, type StaffMember } from '../apis/staff.api';
 const STATUS_STYLES: Record<PackingOrder['status'], { bg: string; color: string }> = {
   Pending: { bg: '#fef3c7', color: '#d97706' },
   'Packed & Ready': { bg: '#dcfce7', color: '#16a34a' },
-  Delivered: { bg: '#dbeafe', color: '#2563eb' },
+  Shipped: { bg: '#dbeafe', color: '#2563eb' },
 };
 
 const thStyle: React.CSSProperties = {
@@ -83,7 +83,7 @@ const SellerPackingList: React.FC = () => {
   const [weightInput, setWeightInput] = useState('');
   const [packSubmitting, setPackSubmitting] = useState(false);
   const [packError, setPackError] = useState<string | null>(null);
-  const [deliverSubmitting, setDeliverSubmitting] = useState(false);
+  const [shipSubmitting, setShipSubmitting] = useState(false);
 
   const [deliveryDraft, setDeliveryDraft] = useState({
     agent: '', agentContact: '', vehicleNo: '', refNo: '', cusPhone: '', estimateDays: '', remark: '',
@@ -224,16 +224,16 @@ const SellerPackingList: React.FC = () => {
   const handlePrint = async () => {
     if (!selectedOrderNo || !detail) return;
     window.print();
-    if (detail.order.status !== 'Packed & Ready') return; // already Delivered — just reprint
-    setDeliverSubmitting(true);
+    if (detail.order.status !== 'Packed & Ready') return; // already Shipped — just reprint
+    setShipSubmitting(true);
     try {
-      const updated = await markDelivered(selectedOrderNo);
+      const updated = await markShipped(selectedOrderNo);
       setDetail(updated);
       applyOrderUpdate(updated.order);
     } catch {
       // printing already happened; surface nothing further, list will just retain its status
     } finally {
-      setDeliverSubmitting(false);
+      setShipSubmitting(false);
     }
   };
 
@@ -510,6 +510,11 @@ const SellerPackingList: React.FC = () => {
                 <span style={{ fontWeight: 600 }}>{record.packedBy || '—'}</span>
               </div>
             )}
+            {record.packNo && (
+              <div style={{ marginTop: '18px' }}>
+                <Barcode value={record.packNo} />
+              </div>
+            )}
           </div>
 
           <div className="premium-card" style={{ padding: '18px' }}>
@@ -599,18 +604,15 @@ const SellerPackingList: React.FC = () => {
             {deliveryError && (
               <p style={{ color: '#dc2626', fontSize: '0.78rem', marginBottom: '10px' }}>{deliveryError}</p>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <button
-                type="button"
-                onClick={handleSaveDelivery}
-                disabled={deliverySaving}
-                className="btn btn-primary"
-                style={{ fontSize: '0.8rem', padding: '6px 14px', opacity: deliverySaving ? 0.6 : 1 }}
-              >
-                {deliverySaving ? 'Saving…' : 'Save Delivery Details'}
-              </button>
-              {record.packNo && <Barcode value={record.packNo} />}
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveDelivery}
+              disabled={deliverySaving}
+              className="btn btn-primary no-print"
+              style={{ fontSize: '0.8rem', padding: '6px 14px', opacity: deliverySaving ? 0.6 : 1 }}
+            >
+              {deliverySaving ? 'Saving…' : 'Save Delivery Details'}
+            </button>
           </div>
         </div>
 
@@ -618,11 +620,11 @@ const SellerPackingList: React.FC = () => {
           <p style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '12px', textAlign: 'right' }}>{packError}</p>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
           <button
             type="button"
             onClick={handlePrint}
-            disabled={!canPrint || deliverSubmitting}
+            disabled={!canPrint || shipSubmitting}
             className="btn"
             style={{
               background: 'var(--primary)', color: '#ffffff',
@@ -631,7 +633,7 @@ const SellerPackingList: React.FC = () => {
             title={canPrint ? 'Print packing list' : 'Mark as packed & ready before printing'}
           >
             <Printer size={16} />
-            {deliverSubmitting ? 'Printing…' : 'Print Packing List'}
+            {shipSubmitting ? 'Printing…' : 'Print Packing List'}
           </button>
           <button
             type="button"

@@ -35,6 +35,15 @@ services:
       # host.docker.internal resolves to the Docker host out of the box on
       # Windows/Mac; extra_hosts below makes it work on Linux too.
       - DB_HOST=${DB_HOST:-host.docker.internal}
+      # The item-resource images/videos pos_item_resources.resource_path rows
+      # reference live in the legacy monolith's backend/uploads/ (populated
+      # before core was split out) — never migrated into
+      # services/core/uploads/, which is a local, gitignored, currently-empty
+      # dev fixture. Mount that folder read-only (core never writes uploads
+      # itself) instead of duplicating files, and point UPLOADS_DIR at it.
+      - UPLOADS_DIR=/data/uploads
+    volumes:
+      - ./backend/uploads:/data/uploads:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
@@ -49,10 +58,13 @@ services:
       - ./services/packing/.env
     environment:
       - DB_HOST=${DB_HOST:-host.docker.internal}
+      - ORDERING_SERVICE_URL=http://ordering:8000
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
       - "8000"
+    depends_on:
+      - ordering
     restart: unless-stopped
 
   picking:

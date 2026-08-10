@@ -23,7 +23,7 @@ export interface PackingOrder {
   customer: string;
   shippingAddress: string;
   totalItems: number;
-  status: 'Pending' | 'Packed & Ready' | 'Delivered';
+  status: 'Pending' | 'Packed & Ready' | 'Shipped';
   packNo: string;
   packageType: string | null;
   weight: number | null;
@@ -74,8 +74,8 @@ export async function updatePackingRemarks(orderNo: string, remarks: string): Pr
   return response.data;
 }
 
-export async function markDelivered(orderNo: string): Promise<PackingDetail> {
-  const response = await api.post<PackingDetail>(`${BASE_URL}/${orderNo}/deliver`);
+export async function markShipped(orderNo: string): Promise<PackingDetail> {
+  const response = await api.post<PackingDetail>(`${BASE_URL}/${orderNo}/ship`);
   return response.data;
 }
 

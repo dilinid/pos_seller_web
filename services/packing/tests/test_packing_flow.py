@@ -66,19 +66,23 @@ def test_update_remarks_requires_existing_pack(client, picked_order):
     assert resp2.json()["remarks"] == "fragile"
 
 
-def test_deliver_flow_and_double_deliver_fails(client, picked_order):
-    resp = client.post("/api/seller/packing-list/O000001/deliver")
+def test_ship_flow_and_double_ship_fails(client, picked_order, mock_ordering):
+    resp = client.post("/api/seller/packing-list/O000001/ship")
     assert resp.status_code == 400  # not packed yet
 
     client.post(
         "/api/seller/packing-list/O000001/pack",
         json={"packageTypeId": 1, "packerId": 1, "weight": 1.5},
     )
-    resp2 = client.post("/api/seller/packing-list/O000001/deliver")
+    resp2 = client.post("/api/seller/packing-list/O000001/ship")
     assert resp2.status_code == 200
-    assert resp2.json()["order"]["status"] == "Delivered"
+    assert resp2.json()["order"]["status"] == "Shipped"
+    mock_ordering.assert_called_once()
+    call_url, call_kwargs = mock_ordering.call_args
+    assert call_url[0].endswith("/internal/orders/O000001/status")
+    assert call_kwargs["json"] == {"status": "shipped", "expectedCurrentStatus": "packing"}
 
-    resp3 = client.post("/api/seller/packing-list/O000001/deliver")
+    resp3 = client.post("/api/seller/packing-list/O000001/ship")
     assert resp3.status_code == 400
 
 

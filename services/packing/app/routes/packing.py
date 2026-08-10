@@ -4,14 +4,18 @@ writes pos_itempack.
 Rules:
 - Only orders with a *confirmed* pos_itempick row (itempick_confirm=1) show up here.
 - Pack # stays empty until "Mark as Packed & Ready" inserts the pos_itempack row.
-- itempack_confirm=1 is set when the order is marked Delivered from the UI
-  (the same action that prints the packing list, per product decision).
+- itempack_confirm=1 is set when the order is marked Shipped from the UI
+  (the same action that prints the packing list, per product decision). This
+  also advances pos_ordhed.status from "packing" to "shipped" via Ordering's
+  /internal/orders/* API (see _call_ordering_status below) — Packing itself
+  never writes pos_ordhed directly.
 
 Owned by: Packing service (pos_itempack). Reads pos_ordhed/pos_orddtl (owned by
-Ordering) and pos_itempick (owned by Picking) directly against the shared DB —
-Packing never mutates either, so this is a read-only cross-service dependency,
-not the write-coupling problem that Picking->Ordering required an /internal/*
-API for. See libs/pos_common/README.md for the ownership convention.
+Ordering) and pos_itempick (owned by Picking) directly against the shared DB.
+The one write Packing makes outside its own tables — advancing order status on
+ship — goes through Ordering's /internal/* API rather than writing pos_ordhed
+directly, same convention Picking->Ordering uses. See libs/pos_common/README.md
+for the ownership convention.
 """
 
 from datetime import datetime
@@ -21,14 +25,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from app.config import settings
 from pos_common.auth import TokenClaims, get_current_user
 from pos_common.database import get_session
+from pos_common.http_client import InternalCallError, internal_patch
 from pos_common.models.pos_itemdeliver import PosItemDeliver
 from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_itempack import PosItemPack
 from pos_common.models.pos_itempick import PosItemPick
 from pos_common.models.pos_orddtl import PosOrdDtl
-from pos_common.models.pos_ordhed import PosOrdHed
+from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
 from pos_common.models.pos_package_type import PosPackageType
 from pos_common.models.pos_staff import PosStaff
 from pos_common.seller_utils import get_customer_name, get_store_id, short_user_code, staff_code, staff_display_name
@@ -63,7 +69,7 @@ class PackingOrderOut(BaseModel):
     customer: str
     shippingAddress: str
     totalItems: int
-    status: str  # "Pending" | "Packed & Ready" | "Delivered"
+    status: str  # "Pending" | "Packed & Ready" | "Shipped"
     packNo: str
     packageType: Optional[str] = None
     weight: Optional[float] = None
@@ -142,6 +148,20 @@ def _latest_delivery(session: Session, ord_no: str) -> Optional[PosItemDeliver]:
     return session.exec(stmt).first()
 
 
+def _call_ordering_status(ord_no: str, new_status: OrderStatus, expected_current: OrderStatus) -> None:
+    try:
+        internal_patch(
+            f"{settings.ORDERING_SERVICE_URL}/internal/orders/{ord_no}/status",
+            json={"status": new_status.value, "expectedCurrentStatus": expected_current.value},
+            token=settings.INTERNAL_SERVICE_TOKEN,
+        )
+    except InternalCallError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not update the order — try again",
+        )
+
+
 def _to_order_out(session: Session, order: PosOrdHed, pick: PosItemPick) -> PackingOrderOut:
     lines = session.exec(
         select(PosOrdDtl).where(PosOrdDtl.OrdNo == order.OrdNo, PosOrdDtl.cancel != True)  # noqa: E712
@@ -150,7 +170,7 @@ def _to_order_out(session: Session, order: PosOrdHed, pick: PosItemPick) -> Pack
     delivery = _latest_delivery(session, order.OrdNo)
 
     if pack:
-        pack_status = "Delivered" if pack.itempack_confirm else "Packed & Ready"
+        pack_status = "Shipped" if pack.itempack_confirm else "Packed & Ready"
         record_date = pack.itempack_mddate
     else:
         pack_status = "Pending"
@@ -350,29 +370,35 @@ def update_packing_remarks(
     return _to_order_out(session, order, pick)
 
 
-@router.post("/{ord_no}/deliver", response_model=PackingDetailOut)
-def mark_delivered(
+@router.post("/{ord_no}/ship", response_model=PackingDetailOut)
+def mark_shipped(
     ord_no: str,
     session: Session = Depends(get_session),
     current_user: TokenClaims = Depends(get_current_user),
 ):
-    """Print Packing List / Mark as Delivered — sets itempack_confirm=1."""
+    """Print Packing List / Mark as Shipped — sets itempack_confirm=1 and advances
+    pos_ordhed.status from "packing" to "shipped" via Ordering's /internal/* API."""
     order = _get_order_or_404(session, ord_no)
     pick = _confirmed_pick(session, ord_no)
     pack = _latest_pack(session, ord_no)
     if not pack:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mark this order as packed & ready before it can be delivered",
+            detail="Mark this order as packed & ready before it can be shipped",
         )
     if pack.itempack_confirm:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This order is already marked as delivered")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This order is already marked as shipped")
+
+    # Call Ordering BEFORE committing our own local change — see module docstring's
+    # write-ownership note and Picking's pickup.py for the same commit-order convention.
+    _call_ordering_status(ord_no, OrderStatus.SHIPPED, OrderStatus.PACKING)
 
     pack.itempack_confirm = True
     pack.itempack_mddate = datetime.utcnow()
     pack.itempack_mdby = short_user_code(current_user.id)
     session.add(pack)
     session.commit()
+    session.refresh(order)
 
     return PackingDetailOut(order=_to_order_out(session, order, pick), items=_to_items_out(session, order))
 
