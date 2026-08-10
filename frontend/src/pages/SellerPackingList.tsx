@@ -7,6 +7,7 @@ import {
   markPacked,
   updatePackingRemarks,
   markDelivered,
+  updateDeliveryDetails,
   type PackageType,
   type PackingOrder,
   type PackingDetail,
@@ -84,6 +85,12 @@ const SellerPackingList: React.FC = () => {
   const [packError, setPackError] = useState<string | null>(null);
   const [deliverSubmitting, setDeliverSubmitting] = useState(false);
 
+  const [deliveryDraft, setDeliveryDraft] = useState({
+    agent: '', agentContact: '', vehicleNo: '', refNo: '', cusPhone: '', estimateDays: '', remark: '',
+  });
+  const [deliverySaving, setDeliverySaving] = useState(false);
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
+
   const loadRecords = async () => {
     setLoading(true);
     setLoadError(null);
@@ -109,6 +116,16 @@ const SellerPackingList: React.FC = () => {
     setRemarksDraft((prev) => ({ ...prev, [updated.orderNo]: updated.remarks }));
   };
 
+  const draftFromOrder = (order: PackingOrder) => ({
+    agent: order.deliveryAgent ?? '',
+    agentContact: order.deliveryAgentContact ?? '',
+    vehicleNo: order.deliveryVehicle ?? '',
+    refNo: order.deliveryRefNo ?? '',
+    cusPhone: order.deliveryCusPhone ?? '',
+    estimateDays: order.deliveryEstimateDays != null ? String(order.deliveryEstimateDays) : '',
+    remark: order.deliveryRemark ?? '',
+  });
+
   const handleOpenRecord = async (orderNo: string) => {
     setSelectedOrderNo(orderNo);
     setDetailLoading(true);
@@ -116,9 +133,11 @@ const SellerPackingList: React.FC = () => {
     setPackageTypeId('');
     setPackerId('');
     setWeightInput('');
+    setDeliveryError(null);
     try {
       const data = await fetchPackingDetail(orderNo);
       setDetail(data);
+      setDeliveryDraft(draftFromOrder(data.order));
     } catch {
       setDetail(null);
     } finally {
@@ -130,6 +149,32 @@ const SellerPackingList: React.FC = () => {
     setSelectedOrderNo(null);
     setDetail(null);
     setPackError(null);
+    setDeliveryError(null);
+  };
+
+  const handleSaveDelivery = async () => {
+    if (!selectedOrderNo) return;
+    setDeliverySaving(true);
+    setDeliveryError(null);
+    try {
+      const estimateDays = deliveryDraft.estimateDays.trim();
+      const updated = await updateDeliveryDetails(selectedOrderNo, {
+        agent: deliveryDraft.agent.trim() || undefined,
+        agentContact: deliveryDraft.agentContact.trim() || undefined,
+        vehicleNo: deliveryDraft.vehicleNo.trim() || undefined,
+        refNo: deliveryDraft.refNo.trim() || undefined,
+        cusPhone: deliveryDraft.cusPhone.trim() || undefined,
+        estimateDays: estimateDays ? Number(estimateDays) : undefined,
+        remark: deliveryDraft.remark.trim() || undefined,
+      });
+      setDetail((prev) => (prev ? { ...prev, order: updated } : prev));
+      setDeliveryDraft(draftFromOrder(updated));
+      applyOrderUpdate(updated);
+    } catch {
+      setDeliveryError('Failed to save delivery details. Please try again.');
+    } finally {
+      setDeliverySaving(false);
+    }
   };
 
   const handleRemarksChange = (orderNo: string, value: string) => {
@@ -468,9 +513,104 @@ const SellerPackingList: React.FC = () => {
           </div>
 
           <div className="premium-card" style={{ padding: '18px' }}>
-            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 12px' }}>Notes</h4>
-            <p style={{ fontSize: '0.85rem', margin: '0 0 16px' }}>{record.remarks || 'No remarks added.'}</p>
-            {record.packNo && <Barcode value={record.packNo} />}
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 12px' }}>Delivery Details</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Agent
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={deliveryDraft.agent}
+                  onChange={(e) => setDeliveryDraft((p) => ({ ...p, agent: e.target.value }))}
+                  className="form-input"
+                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  placeholder="Delivery agent"
+                />
+              </label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Agent Contact
+                <input
+                  type="text"
+                  maxLength={20}
+                  value={deliveryDraft.agentContact}
+                  onChange={(e) => setDeliveryDraft((p) => ({ ...p, agentContact: e.target.value }))}
+                  className="form-input"
+                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  placeholder="Agent phone no."
+                />
+              </label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Vehicle No
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={deliveryDraft.vehicleNo}
+                  onChange={(e) => setDeliveryDraft((p) => ({ ...p, vehicleNo: e.target.value }))}
+                  className="form-input"
+                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                  placeholder="e.g. WP CAB-1234"
+                />
+              </label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Ref No
+                <input
+                  type="text"
+                  maxLength={10}
+                  value={deliveryDraft.refNo}
+                  onChange={(e) => setDeliveryDraft((p) => ({ ...p, refNo: e.target.value }))}
+                  className="form-input"
+                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                />
+              </label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Customer Phone
+                <input
+                  type="text"
+                  maxLength={20}
+                  value={deliveryDraft.cusPhone}
+                  onChange={(e) => setDeliveryDraft((p) => ({ ...p, cusPhone: e.target.value }))}
+                  className="form-input"
+                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                />
+              </label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Est. Days
+                <input
+                  type="number"
+                  min={0}
+                  value={deliveryDraft.estimateDays}
+                  onChange={(e) => setDeliveryDraft((p) => ({ ...p, estimateDays: e.target.value }))}
+                  className="form-input"
+                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px' }}
+                />
+              </label>
+            </div>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '12px' }}>
+              Remark
+              <textarea
+                maxLength={255}
+                value={deliveryDraft.remark}
+                onChange={(e) => setDeliveryDraft((p) => ({ ...p, remark: e.target.value }))}
+                className="form-input"
+                style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px', minHeight: '56px', resize: 'vertical' }}
+                placeholder="Delivery notes"
+              />
+            </label>
+            {deliveryError && (
+              <p style={{ color: '#dc2626', fontSize: '0.78rem', marginBottom: '10px' }}>{deliveryError}</p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={handleSaveDelivery}
+                disabled={deliverySaving}
+                className="btn btn-primary"
+                style={{ fontSize: '0.8rem', padding: '6px 14px', opacity: deliverySaving ? 0.6 : 1 }}
+              >
+                {deliverySaving ? 'Saving…' : 'Save Delivery Details'}
+              </button>
+              {record.packNo && <Barcode value={record.packNo} />}
+            </div>
           </div>
         </div>
 

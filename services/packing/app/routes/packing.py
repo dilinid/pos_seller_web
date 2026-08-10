@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 
 from pos_common.auth import TokenClaims, get_current_user
 from pos_common.database import get_session
+from pos_common.models.pos_itemdeliver import PosItemDeliver
 from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_itempack import PosItemPack
 from pos_common.models.pos_itempick import PosItemPick
@@ -69,6 +70,13 @@ class PackingOrderOut(BaseModel):
     dimensions: Optional[str] = None
     packedBy: Optional[str] = None
     remarks: str
+    deliveryAgent: Optional[str] = None
+    deliveryAgentContact: Optional[str] = None
+    deliveryVehicle: Optional[str] = None
+    deliveryRefNo: Optional[str] = None
+    deliveryCusPhone: Optional[str] = None
+    deliveryEstimateDays: Optional[int] = None
+    deliveryRemark: Optional[str] = None
 
 
 class PackingDetailOut(BaseModel):
@@ -85,6 +93,16 @@ class MarkPackedRequest(BaseModel):
     packerId: int
     weight: float
     remarks: Optional[str] = None
+
+
+class DeliveryDetailsRequest(BaseModel):
+    agent: Optional[str] = None
+    agentContact: Optional[str] = None
+    vehicleNo: Optional[str] = None
+    refNo: Optional[str] = None
+    cusPhone: Optional[str] = None
+    estimateDays: Optional[int] = None
+    remark: Optional[str] = None
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -115,11 +133,21 @@ def _latest_pack(session: Session, ord_no: str) -> Optional[PosItemPack]:
     return session.exec(stmt).first()
 
 
+def _latest_delivery(session: Session, ord_no: str) -> Optional[PosItemDeliver]:
+    stmt = (
+        select(PosItemDeliver)
+        .where(PosItemDeliver.itemdeliver_ordno == ord_no)
+        .order_by(PosItemDeliver.itemdeliver_id.desc())
+    )
+    return session.exec(stmt).first()
+
+
 def _to_order_out(session: Session, order: PosOrdHed, pick: PosItemPick) -> PackingOrderOut:
     lines = session.exec(
         select(PosOrdDtl).where(PosOrdDtl.OrdNo == order.OrdNo, PosOrdDtl.cancel != True)  # noqa: E712
     ).all()
     pack = _latest_pack(session, order.OrdNo)
+    delivery = _latest_delivery(session, order.OrdNo)
 
     if pack:
         pack_status = "Delivered" if pack.itempack_confirm else "Packed & Ready"
@@ -141,6 +169,13 @@ def _to_order_out(session: Session, order: PosOrdHed, pick: PosItemPick) -> Pack
         dimensions=pack.itempack_dimenstion if pack else None,
         packedBy=staff_display_name(session, pack.itempack_user) if pack else None,
         remarks=(pack.itempack_Remark or "") if pack else "",
+        deliveryAgent=delivery.itemdeliver_agent if delivery else None,
+        deliveryAgentContact=delivery.itemdeliver_agentcontact if delivery else None,
+        deliveryVehicle=delivery.itemdeliver_vehicle if delivery else None,
+        deliveryRefNo=delivery.itemdeliver_refno if delivery else None,
+        deliveryCusPhone=delivery.itemdeliver_cusphone if delivery else None,
+        deliveryEstimateDays=delivery.itemdeliver_estimatedays if delivery else None,
+        deliveryRemark=delivery.itemdeliver_remark if delivery else None,
     )
 
 
@@ -340,3 +375,40 @@ def mark_delivered(
     session.commit()
 
     return PackingDetailOut(order=_to_order_out(session, order, pick), items=_to_items_out(session, order))
+
+
+@router.patch("/{ord_no}/delivery-details", response_model=PackingOrderOut)
+def update_delivery_details(
+    ord_no: str,
+    body: DeliveryDetailsRequest,
+    session: Session = Depends(get_session),
+    current_user: TokenClaims = Depends(get_current_user),
+):
+    """Save/update the Delivery Details panel — upserts the pos_itemdeliver row."""
+    order = _get_order_or_404(session, ord_no)
+    pick = _confirmed_pick(session, ord_no)
+    if not pick:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This order has no confirmed pick up record",
+        )
+
+    now = datetime.utcnow()
+    mdby = short_user_code(current_user.id)
+    delivery = _latest_delivery(session, ord_no)
+    if not delivery:
+        delivery = PosItemDeliver(itemdeliver_ordno=ord_no, itemdeliver_loc=order.storeId, itemdeliver_user=mdby)
+
+    delivery.itemdeliver_agent = body.agent
+    delivery.itemdeliver_agentcontact = body.agentContact
+    delivery.itemdeliver_vehicle = body.vehicleNo
+    delivery.itemdeliver_refno = body.refNo
+    delivery.itemdeliver_cusphone = body.cusPhone
+    delivery.itemdeliver_estimatedays = body.estimateDays
+    delivery.itemdeliver_remark = body.remark
+    delivery.itemdeliver_mddate = now
+    delivery.itemdeliver_mdby = mdby
+    session.add(delivery)
+    session.commit()
+
+    return _to_order_out(session, order, pick)
