@@ -1,0 +1,99 @@
+# pos_seller_web microservices migration — Docker Compose.
+#
+# Migration state: Phase 1 complete. Ordering, Picking, and Packing are now
+# standalone services; "core" is the residual monolith (auth, location,
+# marketplace catalog, staff) — see docker-compose.yml/gateway history and the
+# plan for the extraction sequence that got here.
+#
+# The database is NOT containerized here: DB_HOST=host.docker.internal by
+# default so containers reach the MySQL instance already running on the dev
+# host (the same instance the external legacy POS application uses — see
+# libs/pos_common/README.md). Override DB_HOST in a root .env if your setup
+# differs.
+
+services:
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:80"
+    depends_on:
+      - core
+      - packing
+      - picking
+      - ordering
+    restart: unless-stopped
+
+  core:
+    build:
+      context: .
+      dockerfile: services/core/Dockerfile
+    env_file:
+      - ./services/core/.env
+    environment:
+      # host.docker.internal resolves to the Docker host out of the box on
+      # Windows/Mac; extra_hosts below makes it work on Linux too.
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      # The item-resource images/videos pos_item_resources.resource_path rows
+      # reference live in the legacy monolith's backend/uploads/ (populated
+      # before core was split out) — never migrated into
+      # services/core/uploads/, which is a local, gitignored, currently-empty
+      # dev fixture. Mount that folder read-only (core never writes uploads
+      # itself) instead of duplicating files, and point UPLOADS_DIR at it.
+      - UPLOADS_DIR=/data/uploads
+    volumes:
+      - ./backend/uploads:/data/uploads:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  packing:
+    build:
+      context: .
+      dockerfile: services/packing/Dockerfile
+    env_file:
+      - ./services/packing/.env
+    environment:
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      - ORDERING_SERVICE_URL=http://ordering:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+    depends_on:
+      - ordering
+    restart: unless-stopped
+
+  picking:
+    build:
+      context: .
+      dockerfile: services/picking/Dockerfile
+    env_file:
+      - ./services/picking/.env
+    environment:
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      - ORDERING_SERVICE_URL=http://ordering:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+    depends_on:
+      - ordering
+    restart: unless-stopped
+
+  ordering:
+    build:
+      context: .
+      dockerfile: services/ordering/Dockerfile
+    env_file:
+      - ./services/ordering/.env
+    environment:
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+    restart: unless-stopped

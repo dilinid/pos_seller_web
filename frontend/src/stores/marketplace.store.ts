@@ -5,12 +5,15 @@ import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fe
 import { useSellerStore } from './seller.store';
 import { ORDER_STATUS_VALUES } from '../data/order-status';
 
-/** Backend orders are the source of truth for any id they cover; other local-only
- * entries (orders whose backend fetch hasn't landed yet) pass through. */
-function mergeOrders(existing: Order[], fetched: Order[]): Order[] {
-  const fetchedIds = new Set(fetched.map((o) => o.id));
-  const remaining = existing.filter((o) => !fetchedIds.has(o.id));
-  return [...fetched, ...remaining];
+/** Inserts/updates a single fetched order without disturbing the rest of the
+ * locally-held list — used for single-order fetches, where the response isn't
+ * the user's complete order set and shouldn't be treated as one. */
+function upsertOrder(existing: Order[], order: Order): Order[] {
+  const idx = existing.findIndex((o) => o.id === order.id);
+  if (idx === -1) return [order, ...existing];
+  const updated = [...existing];
+  updated[idx] = order;
+  return updated;
 }
 
 interface MarketplaceStoreState {
@@ -72,6 +75,12 @@ interface MarketplaceStoreState {
   addProduct: (product: Product) => void;
   updateProduct: (productId: string, updates: Partial<Product>) => void;
   removeProduct: (productId: string) => void;
+
+  /** Wipes every per-account field (cart, checkout state, orders, reviews) so
+   * a login or logout can never leave the previous account's data visible to
+   * whoever uses the browser next. Catalog data (products/categories) is left
+   * alone since it isn't account-scoped. */
+  resetAccountState: () => void;
 }
 
 const CHECKOUT_INIT = {
@@ -136,7 +145,10 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           const raw = await fetchMyOrders();
           const { id: sellerId, storeName } = useSellerStore.getState().profile;
           const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
-          set({ orders: mergeOrders(get().orders, fetched), ordersLoading: false });
+          // `fetched` is the complete, authoritative list for the signed-in buyer —
+          // replace rather than merge, so a previous account's (or a stale) orders
+          // can't linger in state past this fetch.
+          set({ orders: fetched, ordersLoading: false });
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load orders';
           set({ ordersError: message, ordersLoading: false });
@@ -149,7 +161,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           const raw = await fetchOrderById(orderId);
           const { id: sellerId, storeName } = useSellerStore.getState().profile;
           const order = mapOrderRawToOrder(raw, sellerId, storeName || 'Our Store');
-          set({ orders: mergeOrders(get().orders, [order]), ordersLoading: false });
+          set({ orders: upsertOrder(get().orders, order), ordersLoading: false });
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load order';
           set({ ordersError: message, ordersLoading: false });
@@ -162,7 +174,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           const raw = await fetchSellerOrders();
           const { id: sellerId, storeName } = useSellerStore.getState().profile;
           const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
-          set({ orders: mergeOrders(get().orders, fetched), ordersLoading: false });
+          // Complete, authoritative list of the store's orders — same reasoning as loadOrders.
+          set({ orders: fetched, ordersLoading: false });
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load orders';
           set({ ordersError: message, ordersLoading: false });
@@ -459,6 +472,17 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       removeProduct: (productId) => set({
         products: get().products.filter((p) => p.id !== productId),
       }),
+
+      resetAccountState: () =>
+        set({
+          cart: [],
+          ...CHECKOUT_INIT,
+          orders: [],
+          ordersLoading: false,
+          ordersError: null,
+          allReviews: [],
+          reviewPeriods: [],
+        }),
     }),
     {
       name: 'marketplace-cart',

@@ -27,6 +27,7 @@ interface SellerStoreState {
   profile: SellerProfile;
   isSeller: (userRole?: string | null) => boolean;
   updateProfile: (updates: Partial<SellerProfile>) => void;
+  resetProfile: () => void;
 }
 
 export const useSellerStore = create<SellerStoreState>()(
@@ -39,6 +40,8 @@ export const useSellerStore = create<SellerStoreState>()(
       updateProfile: (updates: Partial<SellerProfile>) => {
         set((state) => ({ profile: { ...state.profile, ...updates } }));
       },
+
+      resetProfile: () => set({ profile: DEFAULT_PROFILE }),
     }),
     {
       name: 'seller-profiles',
