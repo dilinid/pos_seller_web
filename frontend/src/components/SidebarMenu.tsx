@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Layers, Package, HelpCircle } from 'lucide-react';
+import { Layers, Package, HelpCircle, Info } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 import { SidebarBanner } from './marketplace/SidebarBanner';
 
@@ -82,9 +82,31 @@ const SidebarMenu: React.FC = () => {
         <Package size={18} color={location.pathname.startsWith('/orders') ? 'var(--primary)' : 'var(--text-secondary)'} />
         <span>Your Orders</span>
       </div>
+      
+      {/* About Us */}
+      <div
+        onClick={() => navigate('/about')}
+        style={{
+          padding: '12px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          color: isActive('/about') ? 'var(--primary)' : 'var(--text-primary)',
+          fontWeight: isActive('/about') ? 700 : 500,
+          fontSize: '0.88rem',
+          background: isActive('/about') ? 'var(--primary-light)' : 'transparent',
+          transition: 'var(--transition-fast)'
+        }}
+        title="Learn more about us"
+      >
+        <Info size={18} color={isActive('/about') ? 'var(--primary)' : 'var(--text-secondary)'} />
+        <span>About Us</span>
+      </div>
 
       {/* Help Center */}
-      <div 
+      <div
         onClick={() => alert("Help Center Portal - Under maintenance.")}
         style={{
           padding: '12px',

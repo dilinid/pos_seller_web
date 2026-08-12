@@ -10,6 +10,7 @@ import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import AboutUs from './pages/AboutUs';
 import SellerDashboard from './pages/SellerDashboard';
 import SellerSettings from './pages/SellerSettings';
 import SellerProducts from './pages/SellerProducts';
@@ -62,6 +63,9 @@ const AppContent: React.FC = () => {
 
         {/* Seller Storefront */}
         <Route path="/store" element={<SellerStorefront />} />
+
+        {/* About Us */}
+        <Route path="/about" element={<AboutUs />} />
 
         {/* Checkout & Payment Pages */}
         <Route
