@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CSSProperties } from 'react';
 
 const isImageUrl = (value?: string | null): boolean =>
@@ -15,17 +16,21 @@ interface ProductImageProps {
 
 /** Renders a product's image: a real photo URL as <img>, or a legacy emoji as text. */
 export const ProductImage: React.FC<ProductImageProps> = ({ image, alt, size, fill, style }) => {
-  if (isImageUrl(image)) {
+  const [failed, setFailed] = useState(false);
+
+  if (isImageUrl(image) && !failed) {
     return (
       <img
         src={image as string}
         alt={alt}
+        onError={() => setFailed(true)}
         style={{
           width: fill ? '100%' : size,
           height: fill ? '100%' : size,
           objectFit: 'contain',
           display: 'block',
           flexShrink: 0,
+          fontSize: '0.7rem',
           ...style,
         }}
       />
@@ -46,7 +51,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({ image, alt, size, fi
         ...style,
       }}
     >
-      {image || '🛍️'}
+      {failed || !image ? '🛍️' : image}
     </span>
   );
 };

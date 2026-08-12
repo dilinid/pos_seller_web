@@ -591,6 +591,14 @@ h1, h2, h3, h4, h5, h6 {
   padding: 24px 28px 40px;
 }
 
+@media print {
+  .seller-sidebar,
+  .seller-header,
+  .no-print {
+    display: none !important;
+  }
+}
+
 /* Stats grid */
 .seller-stats-grid {
   display: grid;
