@@ -23,13 +23,20 @@ export interface PackingOrder {
   customer: string;
   shippingAddress: string;
   totalItems: number;
-  status: 'Pending' | 'Packed & Ready' | 'Delivered';
+  status: 'Pending' | 'Packed & Ready' | 'Shipped';
   packNo: string;
   packageType: string | null;
   weight: number | null;
   dimensions: string | null;
   packedBy: string | null;
   remarks: string;
+  deliveryAgent: string | null;
+  deliveryAgentContact: string | null;
+  deliveryVehicle: string | null;
+  deliveryRefNo: string | null;
+  deliveryCusPhone: string | null;
+  deliveryEstimateDays: number | null;
+  deliveryRemark: string | null;
 }
 
 export interface PackingDetail {
@@ -67,7 +74,25 @@ export async function updatePackingRemarks(orderNo: string, remarks: string): Pr
   return response.data;
 }
 
-export async function markDelivered(orderNo: string): Promise<PackingDetail> {
-  const response = await api.post<PackingDetail>(`${BASE_URL}/${orderNo}/deliver`);
+export async function markShipped(orderNo: string): Promise<PackingDetail> {
+  const response = await api.post<PackingDetail>(`${BASE_URL}/${orderNo}/ship`);
+  return response.data;
+}
+
+export interface DeliveryDetailsInput {
+  agent?: string;
+  agentContact?: string;
+  vehicleNo?: string;
+  refNo?: string;
+  cusPhone?: string;
+  estimateDays?: number;
+  remark?: string;
+}
+
+export async function updateDeliveryDetails(
+  orderNo: string,
+  body: DeliveryDetailsInput,
+): Promise<PackingOrder> {
+  const response = await api.patch<PackingOrder>(`${BASE_URL}/${orderNo}/delivery-details`, body);
   return response.data;
 }

@@ -1,9 +1,26 @@
 import { useState } from "react";
 import { useAuthStore } from "../stores/auth.store";
+import { useMarketplaceStore } from "../stores/marketplace.store";
+import { useSellerStore } from "../stores/seller.store";
+import { useCODStore } from "../stores/cod.store";
+import { useDashboardStore } from "../stores/dashboard.store";
 import { useNavigate } from "react-router-dom";
 import { fetchUserProfile } from "../apis/profile.api";
 import { loginApi } from "../apis/auth.api";
 import { buildFallbackProfile, mapProfileResponse } from "../utils/profile.utils";
+
+// Every store below persists (or otherwise holds) data scoped to whichever
+// account is signed in — cart, orders, store profile, COD status. None of it
+// is cleared automatically on a session boundary, so without this a second
+// account signing in on the same browser would see the first account's data.
+// Called on both login and logout so a non-clean exit (closed tab, expired
+// token) can't leak into the next session either.
+function resetAccountScopedStores() {
+  useMarketplaceStore.getState().resetAccountState();
+  useSellerStore.getState().resetProfile();
+  useCODStore.getState().resetCOD();
+  useDashboardStore.getState().clearState();
+}
 
 // Bounds match the backend `it_user_master.user_name`/`password` column widths.
 const MAX_USERNAME_LENGTH = 50;
@@ -48,6 +65,8 @@ export function useAuth() {
     setLoading(true);
     try {
       const response = await loginApi(trimmedUserName, password);
+      // Wipe any previous account's leftover state before this one's data starts loading.
+      resetAccountScopedStores();
       setUserSession({
         accessToken: response.access_token,
         username: response.user_name || trimmedUserName,
@@ -74,6 +93,7 @@ export function useAuth() {
   };
 
   function logout() {
+    resetAccountScopedStores();
     clearState();
     navigate("/");
   }
