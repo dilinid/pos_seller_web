@@ -5,13 +5,7 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from pos_common.models.pos_customer import PosCustomer
-from pos_common.models.pos_setup import PosSetup
 from pos_common.models.pos_staff import PosStaff
-
-
-def get_store_id(session: Session) -> Optional[str]:
-    setup = session.exec(select(PosSetup)).first()
-    return setup.setup_storeid if setup else None
 
 
 def get_customer_name(session: Session, member: Optional[str]) -> str:

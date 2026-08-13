@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
-import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchSellerOrders, fetchOrderById, mapOrderRawToOrder } from '../apis/marketplace.api';
+import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchSellerOrders, fetchOrderById, fetchStoreLocations, mapOrderRawToOrder, type StoreLocation } from '../apis/marketplace.api';
 import { useSellerStore } from './seller.store';
 import { ORDER_STATUS_VALUES } from '../data/order-status';
 
@@ -26,6 +26,16 @@ interface MarketplaceStoreState {
   productsError: string | null;
   categoriesLoading: boolean;
   categoriesError: string | null;
+
+  /** Which pos_loc row an order is placed/reserved against — picked from the
+   * store-location dropdown in the navbar, defaulting to the first active
+   * location once `loadLocations` resolves. */
+  locations: StoreLocation[];
+  selectedLocation: StoreLocation | null;
+  locationsLoading: boolean;
+  locationsError: string | null;
+  loadLocations: () => Promise<void>;
+  setSelectedLocation: (location: StoreLocation) => void;
 
   setSubCategory: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -104,6 +114,10 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       productsError: null,
       categoriesLoading: false,
       categoriesError: null,
+      locations: [],
+      selectedLocation: null,
+      locationsLoading: false,
+      locationsError: null,
       ...CHECKOUT_INIT,
       orders: [],
       ordersLoading: false,
@@ -138,6 +152,29 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           set({ categoriesError: message, categoriesLoading: false });
         }
       },
+
+      loadLocations: async () => {
+        if (get().locationsLoading) return;
+        set({ locationsLoading: true, locationsError: null });
+        try {
+          const locations = await fetchStoreLocations();
+          const current = get().selectedLocation;
+          // Keep the persisted choice if it's still a valid/active location;
+          // otherwise (first-ever load, or that location was deactivated) fall
+          // back to the first one, as the dropdown's documented default.
+          const stillValid = current && locations.some((l) => l.code === current.code);
+          set({
+            locations,
+            locationsLoading: false,
+            selectedLocation: stillValid ? current : (locations[0] ?? null),
+          });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load store locations';
+          set({ locationsError: message, locationsLoading: false });
+        }
+      },
+
+      setSelectedLocation: (location) => set({ selectedLocation: location }),
 
       loadOrders: async () => {
         set({ ordersLoading: true, ordersError: null });
@@ -493,6 +530,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         orders: state.orders,
         allReviews: state.allReviews,
         reviewPeriods: state.reviewPeriods,
+        selectedLocation: state.selectedLocation,
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<MarketplaceStoreState> | undefined;

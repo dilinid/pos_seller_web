@@ -54,10 +54,14 @@ export interface StatusTransition {
   icon?: string;
   requiresTracking?: boolean;
   color?: string;
+  /** When set, clicking this transition navigates to this route instead of
+   * updating the order's status — used for "Start Picking", where the status
+   * only actually moves to 'picking' once real picking begins on that page. */
+  navigateTo?: string;
 }
 
 export const SELLER_DELIVERY_TRANSITIONS: StatusTransition[] = [
-  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6' },
+  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6', navigateTo: '/seller/pickup-list' },
   { from: 'pending', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
   { from: 'picking', to: 'packing', label: 'Start Packing', color: '#8b5cf6' },
   { from: 'picking', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
@@ -67,7 +71,7 @@ export const SELLER_DELIVERY_TRANSITIONS: StatusTransition[] = [
 ];
 
 export const SELLER_PICKUP_TRANSITIONS: StatusTransition[] = [
-  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6' },
+  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6', navigateTo: '/seller/pickup-list' },
   { from: 'pending', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
   { from: 'picking', to: 'packing', label: 'Start Packing', color: '#8b5cf6' },
   { from: 'picking', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },

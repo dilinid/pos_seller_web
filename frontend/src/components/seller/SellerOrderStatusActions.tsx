@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { OrderStatus } from '../../types/marketplace.type';
 import { getTransitions, ORDER_STATUS_META } from '../../data/order-status';
 import { SellerTrackingForm } from './SellerTrackingForm';
@@ -15,6 +16,7 @@ interface SellerOrderStatusActionsProps {
 export const SellerOrderStatusActions: React.FC<SellerOrderStatusActionsProps> = ({
   status, deliveryMethod, trackingCarrier, trackingNumber, trackingPhone, onUpdateStatus,
 }) => {
+  const navigate = useNavigate();
   const [confirmAction, setConfirmAction] = useState<OrderStatus | null>(null);
   const [trackingData, setTrackingData] = useState<{ carrier?: string; trackingNumber?: string; contactPhone?: string }>({});
   const transitions = getTransitions(status, deliveryMethod);
@@ -54,7 +56,9 @@ export const SellerOrderStatusActions: React.FC<SellerOrderStatusActionsProps> =
           <button
             key={`${t.from}-${t.to}`}
             onClick={() => {
-              if (t.requiresTracking && !hasTrackingInfo) {
+              if (t.navigateTo) {
+                navigate(t.navigateTo);
+              } else if (t.requiresTracking && !hasTrackingInfo) {
                 setConfirmAction(t.to);
               } else {
                 onUpdateStatus(t.to, t.requiresTracking ? trackingData : undefined);

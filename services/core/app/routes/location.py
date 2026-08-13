@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.database import get_session
+from app.models.pos_loc import PosLoc
 from app.models.sl_district import SlDistrict
 from app.models.sl_ds_division import SlDsDivision
 from app.models.sl_gn_division import SlGnDivision
@@ -17,6 +18,25 @@ router = APIRouter(prefix="/api/location", tags=["location"])
 class DivisionOut(BaseModel):
     id: str
     name: str
+
+
+class StoreLocationOut(BaseModel):
+    code: str
+    name: str
+
+
+@router.get("/stores", response_model=list[StoreLocationOut])
+def list_store_locations(session: Session = Depends(get_session)):
+    """Active pos_loc rows a buyer/seller can pick as "which store" an order is
+    placed against — ordered by code so the frontend's "first row is the
+    default" behavior is deterministic."""
+    stmt = (
+        select(PosLoc)
+        .where(PosLoc.loc_active == True)  # noqa: E712
+        .where(PosLoc.loc_code.isnot(None))
+        .order_by(PosLoc.loc_code)
+    )
+    return [StoreLocationOut(code=loc.loc_code, name=loc.loc_desc or loc.loc_code) for loc in session.exec(stmt)]
 
 
 @router.get("/districts", response_model=list[DivisionOut])

@@ -12,13 +12,18 @@ Rules:
 
 Owned by: Packing service (pos_itempack). Reads pos_ordhed/pos_orddtl (owned by
 Ordering) and pos_itempick (owned by Picking) directly against the shared DB.
-The one write Packing makes outside its own tables — advancing order status on
-ship — goes through Ordering's /internal/* API rather than writing pos_ordhed
-directly, same convention Picking->Ordering uses. See libs/pos_common/README.md
-for the ownership convention.
+The one write Packing makes to another *in-repo-owned* table — advancing order
+status on ship — goes through Ordering's /internal/* API rather than writing
+pos_ordhed directly, same convention Picking->Ordering uses. See
+libs/pos_common/README.md for the ownership convention.
+
+Marking an order packed & ready also removes its picked stock from
+itemlots_sih/itemlots_pick (see pos_common.inventory.adjust_itemlots_stock) —
+a direct write, since pos_itemlots has no in-repo owner to route it through.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -29,6 +34,7 @@ from app.config import settings
 from pos_common.auth import TokenClaims, get_current_user
 from pos_common.database import get_session
 from pos_common.http_client import InternalCallError, internal_patch
+from pos_common.inventory import adjust_itemlots_stock
 from pos_common.models.pos_itemdeliver import PosItemDeliver
 from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_itempack import PosItemPack
@@ -37,7 +43,7 @@ from pos_common.models.pos_orddtl import PosOrdDtl
 from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
 from pos_common.models.pos_package_type import PosPackageType
 from pos_common.models.pos_staff import PosStaff
-from pos_common.seller_utils import get_customer_name, get_store_id, short_user_code, staff_code, staff_display_name
+from pos_common.seller_utils import get_customer_name, short_user_code, staff_code, staff_display_name
 
 router = APIRouter(prefix="/api/seller/packing-list", tags=["packing"])
 meta_router = APIRouter(prefix="/api/seller", tags=["packing"])
@@ -256,11 +262,7 @@ def list_packing_orders(
     session: Session = Depends(get_session),
     current_user: TokenClaims = Depends(get_current_user),
 ):
-    store_id = get_store_id(session)
-
     stmt = select(PosItemPick).where(PosItemPick.itempick_confirm == True)  # noqa: E712
-    if store_id:
-        stmt = stmt.where(PosItemPick.itempick_loc == store_id)
     picks = session.exec(stmt.order_by(PosItemPick.itempick_id.desc())).all()
 
     # One packing-list row per order — keep the most recently confirmed pick per OrdNo.
@@ -340,6 +342,19 @@ def mark_packed(
         itempack_confirm=False,
     )
     session.add(pack)
+
+    # Remove this order's picked stock from stock-on-hand — itemlots_pick drops
+    # by the same amount so it keeps meaning "picked, not yet packed" rather
+    # than accumulating stock this order has already taken out of pick status.
+    lines = session.exec(
+        select(PosOrdDtl).where(PosOrdDtl.OrdNo == ord_no, PosOrdDtl.cancel != True)  # noqa: E712
+    ).all()
+    for line in lines:
+        if not line.itemcode or not line.pickqty:
+            continue
+        qty = Decimal(str(line.pickqty))
+        adjust_itemlots_stock(session, line.itemcode, line.storeId, pick_delta=-qty, sih_delta=-qty)
+
     session.commit()
 
     return PackingDetailOut(order=_to_order_out(session, order, pick), items=_to_items_out(session, order))

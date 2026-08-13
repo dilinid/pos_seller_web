@@ -12,6 +12,11 @@ directly (see pos_common.http_client + libs/pos_common/README.md for the
 ownership convention, and the plan's "resolving the transactional coupling"
 section for why a synchronous call was chosen over an event/outbox here).
 
+Confirming a pick also moves the picked lines' reservation into
+itemlots_pick (see pos_common.inventory.adjust_itemlots_stock) — the one
+sanctioned direct write this service makes outside pos_itempick, since
+pos_itemlots has no in-repo owner to route it through instead.
+
 Failure handling: both print (first print) and confirm call Ordering BEFORE
 committing this service's own local pos_itempick change. If the Ordering call
 fails, nothing is committed locally and the client gets a 502 — so Picking's
@@ -21,6 +26,7 @@ plan's risk notes for the one residual failure window this doesn't cover
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -31,12 +37,13 @@ from app.config import settings
 from pos_common.auth import TokenClaims, get_current_user
 from pos_common.database import get_session
 from pos_common.http_client import InternalCallError, internal_patch
+from pos_common.inventory import adjust_itemlots_stock
 from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_itempick import PosItemPick
 from pos_common.models.pos_orddtl import PosOrdDtl
 from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
 from pos_common.models.pos_staff import PosStaff
-from pos_common.seller_utils import get_customer_name, get_store_id, short_user_code, staff_code, staff_display_name
+from pos_common.seller_utils import get_customer_name, short_user_code, staff_code, staff_display_name
 
 router = APIRouter(prefix="/api/seller/pickup-list", tags=["pickup"])
 
@@ -102,10 +109,23 @@ def _get_order_or_404(session: Session, ord_no: str) -> PosOrdHed:
     return order
 
 
-def _latest_pick(session: Session, ord_no: str) -> Optional[PosItemPick]:
+def _latest_pick(session: Session, order: PosOrdHed) -> Optional[PosItemPick]:
+    """The order's own pick row, if any.
+
+    A pick row is only ever inserted in the same call that moves an order out
+    of "pending" (see print_pickup_order below), so while the order is still
+    pending it cannot have a real pick of its own yet. Returning early here
+    guards against OrdNo reuse: if pos_ordhed ever gets reset/pruned while
+    pos_itempick isn't cleared alongside it, a new order can be assigned an
+    OrdNo a previous (possibly confirmed) order already used, and a naive
+    match-by-OrdNo query would wrongly attach that old pick — and its
+    Confirmed status — to the new, still-pending order.
+    """
+    if order.status == OrderStatus.PENDING:
+        return None
     stmt = (
         select(PosItemPick)
-        .where(PosItemPick.itempick_ordno == ord_no)
+        .where(PosItemPick.itempick_ordno == order.OrdNo)
         .order_by(PosItemPick.itempick_id.desc())
     )
     return session.exec(stmt).first()
@@ -145,7 +165,7 @@ def _to_order_out(session: Session, order: PosOrdHed) -> PickupOrderOut:
     lines = session.exec(
         select(PosOrdDtl).where(PosOrdDtl.OrdNo == order.OrdNo, PosOrdDtl.cancel != True)  # noqa: E712
     ).all()
-    pick = _latest_pick(session, order.OrdNo)
+    pick = _latest_pick(session, order)
 
     return PickupOrderOut(
         orderNo=order.OrdNo,
@@ -196,13 +216,12 @@ def list_pickup_orders(
     session: Session = Depends(get_session),
     current_user: TokenClaims = Depends(get_current_user),
 ):
-    store_id = get_store_id(session)
-    stmt = select(PosOrdHed).where(PosOrdHed.status.in_(ACTIVE_STATUSES)).where(
-        PosOrdHed.cancel != True  # noqa: E712
+    stmt = (
+        select(PosOrdHed)
+        .where(PosOrdHed.status.in_(ACTIVE_STATUSES))
+        .where(PosOrdHed.cancel != True)  # noqa: E712
+        .order_by(PosOrdHed.created_at.desc())
     )
-    if store_id:
-        stmt = stmt.where(PosOrdHed.storeId == store_id)
-    stmt = stmt.order_by(PosOrdHed.created_at.desc())
 
     orders = session.exec(stmt).all()
     return [_to_order_out(session, order) for order in orders]
@@ -235,11 +254,16 @@ def print_pickup_order(
 
     now = datetime.utcnow()
 
-    pick = _latest_pick(session, ord_no)
+    pick = _latest_pick(session, order)
     if not pick:
         if order.status == OrderStatus.PENDING:
             # Call Ordering BEFORE committing our own local row — see module docstring.
             _call_ordering_status(ord_no, OrderStatus.PICKING, OrderStatus.PENDING)
+            # Ordering owns this write, but reflect it locally right away rather than
+            # relying on session.refresh() to observe it — the response built below
+            # needs order.status to already read "picking" so _latest_pick treats the
+            # row we're about to insert as this order's own pick.
+            order.status = OrderStatus.PICKING
 
         pick = PosItemPick(
             itempick_ordno=ord_no,
@@ -270,7 +294,7 @@ def update_pickup_remarks(
     current_user: TokenClaims = Depends(get_current_user),
 ):
     order = _get_order_or_404(session, ord_no)
-    pick = _latest_pick(session, ord_no)
+    pick = _latest_pick(session, order)
     if not pick:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -294,7 +318,7 @@ def confirm_pickup_order(
     current_user: TokenClaims = Depends(get_current_user),
 ):
     order = _get_order_or_404(session, ord_no)
-    pick = _latest_pick(session, ord_no)
+    pick = _latest_pick(session, order)
     if not pick:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -303,13 +327,14 @@ def confirm_pickup_order(
     if pick.itempick_confirm:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This pick has already been confirmed")
 
-    valid_linenos = set(
-        session.exec(select(PosOrdDtl.lineno).where(PosOrdDtl.OrdNo == ord_no)).all()
-    )
+    lines_by_no = {
+        line.lineno: line
+        for line in session.exec(select(PosOrdDtl).where(PosOrdDtl.OrdNo == ord_no)).all()
+    }
     pick_items = [
         {"lineno": item.lineno, "qtyPicked": item.qtyPicked}
         for item in body.items
-        if item.lineno in valid_linenos
+        if item.lineno in lines_by_no
     ]
 
     now = datetime.utcnow()
@@ -325,6 +350,17 @@ def confirm_pickup_order(
     if body.remarks is not None:
         pick.itempick_Remark = body.remarks
     session.add(pick)
+
+    # Move each picked line's reservation into itemlots_pick — released here,
+    # not at order time, so itemlots_reserve always means "ordered, not yet
+    # picked." Lines the picker reported as 0/unpicked don't move any stock.
+    for item in body.items:
+        line = lines_by_no.get(item.lineno)
+        if not line or not line.itemcode or not item.qtyPicked:
+            continue
+        qty = Decimal(str(item.qtyPicked))
+        adjust_itemlots_stock(session, line.itemcode, line.storeId, pick_delta=qty, reserve_delta=-qty)
+
     session.commit()
     # Refresh after commit (fresh snapshot) so this reflects Ordering's already-
     # committed pickqty/status writes, not this transaction's pre-call snapshot.

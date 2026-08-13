@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 
 from pos_common.auth import TokenClaims, get_current_user
 from pos_common.database import get_session
+from pos_common.inventory import adjust_itemlots_stock
 from pos_common.models.pos_customer import PosCustomer
 from pos_common.models.pos_invdtl import PosInvDtl
 from pos_common.models.pos_invhed import PosInvHed
@@ -29,7 +30,6 @@ from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_orddtl import PosOrdDtl
 from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
 from pos_common.models.pos_paymode import PosPayMode
-from pos_common.seller_utils import get_store_id
 
 router = APIRouter(prefix="/api/marketplace", tags=["orders"])
 
@@ -74,6 +74,9 @@ class PlaceOrderRequest(BaseModel):
     deliveryAddress: Optional[str] = None
     deliveryFee: float = 0
     paymentMethod: Literal["card", "cod"]
+    # The pos_loc.loc_code the buyer picked from the store-location dropdown —
+    # which pos_itemlots row this order's stock is reserved/stamped against.
+    locationCode: str = Field(min_length=1, max_length=10)
 
 
 class PlaceOrderResponse(BaseModel):
@@ -268,7 +271,7 @@ def place_order(
     if body.deliveryMethod == "delivery" and not (body.deliveryAddress and body.deliveryAddress.strip()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delivery address is required")
 
-    store_id = get_store_id(session)
+    store_id = body.locationCode
     now = datetime.utcnow()
     created_by_id = str(current_user.id) if current_user.id is not None else None
 
@@ -291,80 +294,50 @@ def place_order(
 
     last_error: Optional[Exception] = None
     for _ in range(MAX_ORD_NO_ATTEMPTS):
-        ord_no = _generate_ord_no(session)
-        order = PosOrdHed(
-            OrdNo=ord_no,
-            type=ORDER_TYPE_ONLINE,
-            status=OrderStatus.PENDING,
-            # Card payments are captured immediately at checkout, so the order is
-            # invoiced on creation; COD orders stay uninvoiced until paid on delivery.
-            is_invoiced=body.paymentMethod == "card",
-            created_at=now,
-            created_by_id=created_by_id,
-            storeId=store_id,
-            member=customer.cus_code,
-            ordaddress=address,
-            pricemode=PAYMENT_METHOD_TO_PRICEMODE[body.paymentMethod],
-            grossamount=gross_amount,
-            addamount=delivery_fee,
-            netamount=net_amount,
-            payamount=pay_amount,
-            dueamount=due_amount,
-            cancel=False,
-        )
-        session.add(order)
+        # Everything below — header, lines, the itemlots reserve adjustment, and
+        # (for card payments) the invoice rows — lives in ONE try/except. A
+        # colliding ord_no (two near-simultaneous checkouts racing _generate_ord_no)
+        # can surface as an IntegrityError at any of several points, not just the
+        # final commit: adjust_itemlots_stock's SELECT ... FOR UPDATE and
+        # _generate_inv_no's SELECT both trigger SQLAlchemy's autoflush, which can
+        # flush the pending header/line INSERTs — and therefore hit the collision —
+        # well before session.commit() is ever called. A single try/except around
+        # the whole attempt ensures a collision caught at any of those points rolls
+        # back this attempt and retries with a fresh ord_no, instead of propagating
+        # as an unhandled 500.
         try:
-            session.flush()
-        except IntegrityError as exc:
-            session.rollback()
-            last_error = exc
-            continue
-
-        line_items = [
-            (lineno, item, Decimal(str(item.quantity)), Decimal(str(item.price)))
-            for lineno, item in enumerate(body.items, start=1)
-        ]
-
-        for lineno, item, qty, price in line_items:
-            session.add(
-                PosOrdDtl(
-                    OrdNo=ord_no,
-                    lineno=lineno,
-                    created_at=now,
-                    created_by_id=created_by_id,
-                    storeId=store_id,
-                    itemcode=item.itemCode,
-                    qty=qty,
-                    sprice=price,
-                    amount=qty * price,
-                    cancel=False,
-                )
+            ord_no = _generate_ord_no(session)
+            order = PosOrdHed(
+                OrdNo=ord_no,
+                type=ORDER_TYPE_ONLINE,
+                status=OrderStatus.PENDING,
+                # Card payments are captured immediately at checkout, so the order is
+                # invoiced on creation; COD orders stay uninvoiced until paid on delivery.
+                is_invoiced=body.paymentMethod == "card",
+                created_at=now,
+                created_by_id=created_by_id,
+                storeId=store_id,
+                member=customer.cus_code,
+                ordaddress=address,
+                pricemode=PAYMENT_METHOD_TO_PRICEMODE[body.paymentMethod],
+                grossamount=gross_amount,
+                addamount=delivery_fee,
+                netamount=net_amount,
+                payamount=pay_amount,
+                dueamount=due_amount,
+                cancel=False,
             )
+            session.add(order)
 
-        if body.paymentMethod == "card":
-            inv_no = _generate_inv_no(session)
-            order.InvNo = inv_no
-            session.add(
-                PosInvHed(
-                    InvNo=inv_no,
-                    created_at=now,
-                    created_by_id=created_by_id,
-                    storeId=store_id,
-                    member=customer.cus_code,
-                    pricemode=PAYMENT_METHOD_TO_PRICEMODE[body.paymentMethod],
-                    refno=ord_no,
-                    grossamount=gross_amount,
-                    addamount=delivery_fee,
-                    netamount=net_amount,
-                    dueamount=Decimal("0"),
-                    payamount=net_amount,
-                    cancel=False,
-                )
-            )
+            line_items = [
+                (lineno, item, Decimal(str(item.quantity)), Decimal(str(item.price)))
+                for lineno, item in enumerate(body.items, start=1)
+            ]
+
             for lineno, item, qty, price in line_items:
                 session.add(
-                    PosInvDtl(
-                        InvNo=inv_no,
+                    PosOrdDtl(
+                        OrdNo=ord_no,
                         lineno=lineno,
                         created_at=now,
                         created_by_id=created_by_id,
@@ -376,21 +349,59 @@ def place_order(
                         cancel=False,
                     )
                 )
-            session.add(
-                PosInvPay(
-                    Invno=inv_no,
-                    paytype=card_paymode.pay_code,
-                    created_at=now,
-                    created_by_id=created_by_id,
-                    storeId=store_id,
-                    paytypedesc=card_paymode.pay_typedesc,
-                    payamt=net_amount,
-                    amount=net_amount,
-                    cancel=False,
-                )
-            )
+                # Reserve the ordered quantity against inventory — released back by
+                # Picking (see pos_common.inventory) once this line is picked.
+                adjust_itemlots_stock(session, item.itemCode, store_id, reserve_delta=qty)
 
-        try:
+            if body.paymentMethod == "card":
+                inv_no = _generate_inv_no(session)
+                order.InvNo = inv_no
+                session.add(
+                    PosInvHed(
+                        InvNo=inv_no,
+                        created_at=now,
+                        created_by_id=created_by_id,
+                        storeId=store_id,
+                        member=customer.cus_code,
+                        pricemode=PAYMENT_METHOD_TO_PRICEMODE[body.paymentMethod],
+                        refno=ord_no,
+                        grossamount=gross_amount,
+                        addamount=delivery_fee,
+                        netamount=net_amount,
+                        dueamount=Decimal("0"),
+                        payamount=net_amount,
+                        cancel=False,
+                    )
+                )
+                for lineno, item, qty, price in line_items:
+                    session.add(
+                        PosInvDtl(
+                            InvNo=inv_no,
+                            lineno=lineno,
+                            created_at=now,
+                            created_by_id=created_by_id,
+                            storeId=store_id,
+                            itemcode=item.itemCode,
+                            qty=qty,
+                            sprice=price,
+                            amount=qty * price,
+                            cancel=False,
+                        )
+                    )
+                session.add(
+                    PosInvPay(
+                        Invno=inv_no,
+                        paytype=card_paymode.pay_code,
+                        created_at=now,
+                        created_by_id=created_by_id,
+                        storeId=store_id,
+                        paytypedesc=card_paymode.pay_typedesc,
+                        payamt=net_amount,
+                        amount=net_amount,
+                        cancel=False,
+                    )
+                )
+
             session.commit()
         except IntegrityError as exc:
             session.rollback()
@@ -449,15 +460,14 @@ def list_seller_orders(
     session: Session = Depends(get_session),
     current_user: TokenClaims = Depends(get_current_user),
 ):
-    """Every online order for this store, across all customers — the seller-side
-    counterpart to a buyer's own order history above. Backs the seller order and
-    payment management pages."""
-    store_id = get_store_id(session)
-
-    stmt = select(PosOrdHed).where(PosOrdHed.type == ORDER_TYPE_ONLINE)
-    if store_id:
-        stmt = stmt.where(PosOrdHed.storeId == store_id)
-    stmt = stmt.order_by(PosOrdHed.created_at.desc())
+    """Every online order, across all store locations and customers — the
+    seller-side counterpart to a buyer's own order history above. Backs the
+    seller order and payment management pages."""
+    stmt = (
+        select(PosOrdHed)
+        .where(PosOrdHed.type == ORDER_TYPE_ONLINE)
+        .order_by(PosOrdHed.created_at.desc())
+    )
     orders = session.exec(stmt).all()
 
     results: list[OrderOut] = []
