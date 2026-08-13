@@ -31,6 +31,7 @@ const PaymentPage: React.FC = () => {
   const addOrder = useMarketplaceStore((s) => s.addOrder);
   const orderNotes = useMarketplaceStore((s) => s.orderNotes);
   const resetCheckout = useMarketplaceStore((s) => s.resetCheckout);
+  const selectedLocation = useMarketplaceStore((s) => s.selectedLocation);
 
   const codApproved = useCODStore((s) => s.request.status === 'approved');
 
@@ -89,6 +90,10 @@ const PaymentPage: React.FC = () => {
 
   const executePayment = async () => {
     if (placingOrder) return;
+    if (!selectedLocation) {
+      setPlaceOrderError('No store location available. Please try again.');
+      return;
+    }
     setPlacingOrder(true);
     setPlaceOrderError(null);
 
@@ -104,6 +109,7 @@ const PaymentPage: React.FC = () => {
         deliveryAddress: deliveryOrPickupMethod === 'delivery' ? deliveryAddress : undefined,
         deliveryFee: orderSummary.fee,
         paymentMethod,
+        locationCode: selectedLocation.code,
       });
     } catch (err: any) {
       setPlacingOrder(false);
@@ -315,13 +321,13 @@ const PaymentPage: React.FC = () => {
 
                   <button
                     onClick={handlePlaceOrder}
-                    disabled={(paymentMethod === 'card' && !cardValid) || placingOrder}
+                    disabled={(paymentMethod === 'card' && !cardValid) || placingOrder || !selectedLocation}
                     className="btn btn-primary"
                     style={{
                       width: '100%', borderRadius: '24px', padding: '14px',
                       marginTop: '18px', fontSize: '1rem',
-                      opacity: (paymentMethod === 'card' && !cardValid) || placingOrder ? 0.5 : 1,
-                      cursor: (paymentMethod === 'card' && !cardValid) || placingOrder ? 'not-allowed' : 'pointer',
+                      opacity: (paymentMethod === 'card' && !cardValid) || placingOrder || !selectedLocation ? 0.5 : 1,
+                      cursor: (paymentMethod === 'card' && !cardValid) || placingOrder || !selectedLocation ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <CheckCircle2 size={18} />

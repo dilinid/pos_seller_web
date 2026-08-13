@@ -6,13 +6,7 @@ from sqlmodel import Session, select
 
 from app.models.it_user_master import ITUserMaster
 from app.models.pos_customer import PosCustomer
-from app.models.pos_setup import PosSetup
 from app.models.pos_staff import PosStaff
-
-
-def get_store_id(session: Session) -> Optional[str]:
-    setup = session.exec(select(PosSetup)).first()
-    return setup.setup_storeid if setup else None
 
 
 def get_customer_name(session: Session, member: Optional[str]) -> str:

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMarketplaceStore } from "../stores/marketplace.store";
 import {
@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Package,
   Layers,
+  MapPin,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useSellerStore } from "../stores/seller.store";
@@ -31,12 +32,26 @@ const Navbar: React.FC<NavbarProps> = ({
   const cart = useMarketplaceStore((s) => s.cart);
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
+  const locations = useMarketplaceStore((s) => s.locations);
+  const selectedLocation = useMarketplaceStore((s) => s.selectedLocation);
+  const loadLocations = useMarketplaceStore((s) => s.loadLocations);
+  const setSelectedLocation = useMarketplaceStore((s) => s.setSelectedLocation);
+
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
 
   const isShoppingPage = location.pathname === "/";
+
+  useEffect(() => {
+    if (locations.length === 0) {
+      void loadLocations();
+    }
+    // Only ever needs to run once per app load — loadLocations itself guards
+    // against overlapping/duplicate fetches for the many Navbar remounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -290,6 +305,48 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* RIGHT SIDE: BANK SHORTCUT, CART DRAWER, AND MEMBER SIGN-IN */}
         <div className="navbar-right-actions">
+          {/* STORE LOCATION SELECT — which pos_loc row orders are placed/reserved against */}
+          {locations.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "20px",
+                padding: "6px 12px",
+              }}
+              title="Store location"
+            >
+              <MapPin size={15} color="var(--text-secondary)" />
+              <select
+                value={selectedLocation?.code ?? ""}
+                onChange={(e) => {
+                  const next = locations.find((l) => l.code === e.target.value);
+                  if (next) setSelectedLocation(next);
+                }}
+                aria-label="Store location"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                  maxWidth: "140px",
+                }}
+              >
+                {locations.map((loc) => (
+                  <option key={loc.code} value={loc.code}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* CART DRAWER TOGGLE (Only active/visible on catalog/shopping checkout view) */}
           {onCartToggle && (
             <button

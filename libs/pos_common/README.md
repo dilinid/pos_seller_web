@@ -17,6 +17,10 @@ enforced:
 - Every other service must call the owning service's public (or `/internal/*`) API
   instead of writing the table directly, even though nothing at the database level
   stops it from doing so.
+- One deliberate exception: `pos_itemlots` is owned externally, but its
+  `itemlots_reserve`/`itemlots_pick`/`itemlots_sih` columns are written directly by
+  Ordering, Picking, and Packing respectively via `pos_common.inventory.adjust_itemlots_stock`
+  (see that module's docstring) — there's no in-repo owner to route the write through.
 - This is a **code-review convention**, not a DB-enforced rule. A stronger
   mitigation (per-service MySQL users with `GRANT SELECT`-only on non-owned tables)
   is a good hardening step once ownership stabilizes, not required for Phase 1.
@@ -44,7 +48,7 @@ subdirectory) so the Dockerfile's `COPY libs/pos_common ...` step can reach it.
   (local JWT verification, no DB lookup), `require_internal_token` (guards
   `/internal/*` endpoints with a shared-secret bearer token).
 - `seller_utils.py` — small helpers used by the fulfillment services
-  (`get_store_id`, `get_customer_name`, `staff_code`, `staff_display_name`).
+  (`get_customer_name`, `staff_code`, `staff_display_name`).
 - `http_client.py` — synchronous internal-call helper with a shared
   timeout/retry policy for service-to-service calls (e.g. Picking → Ordering).
 - `models/` — the 24 SQLModel table classes.

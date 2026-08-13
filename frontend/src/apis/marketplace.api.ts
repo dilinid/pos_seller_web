@@ -59,6 +59,16 @@ export async function fetchMarketplaceCategories(): Promise<ProductSubCategory[]
   return response.data;
 }
 
+export interface StoreLocation {
+  code: string;
+  name: string;
+}
+
+export async function fetchStoreLocations(): Promise<StoreLocation[]> {
+  const response = await api.get<StoreLocation[]>('/api/location/stores');
+  return response.data;
+}
+
 export interface PlaceOrderItem {
   itemCode: string;
   quantity: number;
@@ -71,6 +81,7 @@ export interface PlaceOrderRequest {
   deliveryAddress?: string;
   deliveryFee: number;
   paymentMethod: 'card' | 'cod';
+  locationCode: string;
 }
 
 export interface PlaceOrderResponse {

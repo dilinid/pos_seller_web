@@ -96,6 +96,12 @@ def pending_order(session):
 
 @pytest.fixture()
 def printed_order(session, pending_order):
+    # A real print always moves the order out of "pending" in the same
+    # operation that creates the pick row (see print_pickup_order) — mirror
+    # that here so this fixture matches production's invariant that a pick
+    # never coexists with a still-pending order.
+    pending_order.status = OrderStatus.PICKING
+    session.add(pending_order)
     session.add(
         PosItemPick(
             itempick_ordno="O000001",

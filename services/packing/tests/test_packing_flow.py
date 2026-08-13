@@ -1,3 +1,9 @@
+from sqlmodel import select
+
+from pos_common.models.pos_itemlots import PosItemLots
+from pos_common.models.pos_orddtl import PosOrdDtl
+
+
 def test_list_packing_orders_empty(client):
     resp = client.get("/api/seller/packing-list")
     assert resp.status_code == 200
@@ -64,6 +70,30 @@ def test_update_remarks_requires_existing_pack(client, picked_order):
     resp2 = client.patch("/api/seller/packing-list/O000001/remarks", json={"remarks": "fragile"})
     assert resp2.status_code == 200
     assert resp2.json()["remarks"] == "fragile"
+
+
+def test_mark_packed_reduces_stock_on_hand(client, session, picked_order):
+    # Simulate Picking's confirm having already run: this line was picked, and
+    # that moved 2 units into itemlots_pick on the lot.
+    line = session.exec(select(PosOrdDtl).where(PosOrdDtl.OrdNo == "O000001")).first()
+    line.pickqty = 2
+    session.add(line)
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    lot.itemlots_sih = 50
+    lot.itemlots_pick = 2
+    session.add(lot)
+    session.commit()
+
+    resp = client.post(
+        "/api/seller/packing-list/O000001/pack",
+        json={"packageTypeId": 1, "packerId": 1, "weight": 1.5},
+    )
+    assert resp.status_code == 200
+
+    session.expire_all()
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    assert float(lot.itemlots_sih) == 48
+    assert float(lot.itemlots_pick) == 0
 
 
 def test_ship_flow_and_double_ship_fails(client, picked_order, mock_ordering):

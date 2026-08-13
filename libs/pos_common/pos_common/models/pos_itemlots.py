@@ -1,5 +1,11 @@
-"""Owned by: external legacy POS application (inventory lots). Shared-read
-only — every service that displays an item name/uom/location reads this."""
+"""Owned by: external legacy POS application (inventory lots). Shared-read by
+every service that displays an item name/uom/location.
+
+Exception — itemlots_reserve/itemlots_pick/itemlots_sih are also written
+directly by Ordering/Picking/Packing as part of the online-order stock
+handoff; see pos_common.inventory.adjust_itemlots_stock for the only
+sanctioned way to do that (row-locked, delta-based, never a blind overwrite).
+Every other column stays external-write-only."""
 
 from datetime import datetime
 from decimal import Decimal

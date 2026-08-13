@@ -1,4 +1,7 @@
+from sqlmodel import select
+
 from pos_common.http_client import InternalCallError
+from pos_common.models.pos_itemlots import PosItemLots
 
 
 def test_list_pickup_orders_includes_pending(client, pending_order):
@@ -71,6 +74,42 @@ def test_confirm_already_confirmed_fails(client, printed_order, mock_ordering):
 
     resp2 = client.post("/api/seller/pickup-list/O000001/confirm", json={"items": [{"lineno": 1, "qtyPicked": 2}]})
     assert resp2.status_code == 400
+
+
+def test_confirm_moves_reservation_into_pick(client, session, printed_order, mock_ordering):
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    lot.itemlots_reserve = 2  # simulates Ordering's reserve step having already run
+    session.add(lot)
+    session.commit()
+
+    resp = client.post(
+        "/api/seller/pickup-list/O000001/confirm",
+        json={"items": [{"lineno": 1, "qtyPicked": 2}]},
+    )
+    assert resp.status_code == 200
+
+    session.expire_all()
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    assert float(lot.itemlots_pick) == 2
+    assert float(lot.itemlots_reserve) == 0
+
+
+def test_confirm_with_zero_picked_does_not_move_stock(client, session, printed_order, mock_ordering):
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    lot.itemlots_reserve = 2
+    session.add(lot)
+    session.commit()
+
+    resp = client.post(
+        "/api/seller/pickup-list/O000001/confirm",
+        json={"items": [{"lineno": 1, "qtyPicked": 0}]},
+    )
+    assert resp.status_code == 200
+
+    session.expire_all()
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    assert lot.itemlots_pick is None
+    assert float(lot.itemlots_reserve) == 2
 
 
 def test_confirm_returns_502_and_commits_nothing_locally_when_ordering_fails(client, printed_order, mock_ordering):
