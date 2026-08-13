@@ -18,6 +18,7 @@ export const SellerOrderTimeline: React.FC<SellerOrderTimelineProps> = ({
 }) => {
   const current = getTimelineStep(status);
   const isCancelled = status === 'cancelled';
+  const isReturned = status === 'returned';
 
   const steps = ORDER_TIMELINE_STEPS.filter((s) => {
     if (deliveryMethod === 'pickup' && s.key === 'shipped') return false;
@@ -103,6 +104,25 @@ export const SellerOrderTimeline: React.FC<SellerOrderTimelineProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#dc2626' }}>
               Cancelled
+            </span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              {formatTime(updatedAt)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {isReturned && (
+        <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px' }}>
+            <div style={{
+              width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0,
+              background: '#d97706',
+            }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#92400e' }}>
+              Returned
             </span>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
               {formatTime(updatedAt)}

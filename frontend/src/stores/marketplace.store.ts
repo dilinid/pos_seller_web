@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
+import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, OrderItem, UserReview, ReviewPeriod, OrderStatus, PaymentStatus, ReturnReason } from '../types/marketplace.type';
 import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchSellerOrders, fetchOrderById, fetchStoreLocations, mapOrderRawToOrder, type StoreLocation } from '../apis/marketplace.api';
 import { useSellerStore } from './seller.store';
 import { ORDER_STATUS_VALUES } from '../data/order-status';
@@ -14,6 +14,36 @@ function upsertOrder(existing: Order[], order: Order): Order[] {
   const updated = [...existing];
   updated[idx] = order;
   return updated;
+}
+
+/** Prefix for return pseudo-order ids (e.g. "RTN000001") — lets pages tell a
+ * local-only return order apart from a real, backend-fetched order id without
+ * needing an extra round-trip (see Order.isReturn in marketplace.type.ts). */
+export const RETURN_ORDER_ID_PREFIX = 'RTN';
+
+export function isReturnOrderId(orderId: string): boolean {
+  return orderId.startsWith(RETURN_ORDER_ID_PREFIX);
+}
+
+/** Quantity already returned per productId for a given original order, summed
+ * across every return pseudo-order filed against it — used to cap how much of
+ * an item the buyer can still select on the return request form. */
+export function getReturnedQuantities(returnOrders: Order[], originalOrderId: string): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const ro of returnOrders) {
+    if (ro.originalOrderId !== originalOrderId) continue;
+    for (const item of ro.items) {
+      map[item.productId] = (map[item.productId] ?? 0) + item.quantity;
+    }
+  }
+  return map;
+}
+
+/** All return pseudo-orders filed against a given original order, most recent first. */
+export function getReturnsForOrder(returnOrders: Order[], originalOrderId: string): Order[] {
+  return returnOrders
+    .filter((ro) => ro.originalOrderId === originalOrderId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 interface MarketplaceStoreState {
@@ -68,12 +98,27 @@ interface MarketplaceStoreState {
   orders: Order[];
   ordersLoading: boolean;
   ordersError: string | null;
+  /** Client-only return requests (see Order.isReturn) — not part of `orders`
+   * because loadOrders/loadSellerOrders replace that array wholesale from the
+   * backend on every fetch, which would wipe these out. Kept as its own
+   * persisted list instead, and merged into buyer/seller order views at read time. */
+  returnOrders: Order[];
   allReviews: UserReview[];
   reviewPeriods: ReviewPeriod[];
   loadOrders: () => Promise<void>;
   loadOrder: (orderId: string) => Promise<void>;
   loadSellerOrders: () => Promise<void>;
   addOrder: (order: Order) => void;
+  /** Creates a return pseudo-order for the selected items/quantities and
+   * stores it in `returnOrders`. UI-only for now — would become a real
+   * pos_ordhed row with type 'RTN' (from pos_return_type) once the backend
+   * supports returns. Returns the created return order. */
+  submitReturnRequest: (
+    order: Order,
+    selections: { item: OrderItem; quantity: number }[],
+    reason: ReturnReason,
+    note?: string,
+  ) => Order;
   updateOrderItemStatus: (orderId: string, productId: string, status: OrderStatus) => void;
   updateOrderPaymentStatus: (orderId: string, status: PaymentStatus) => void;
   sellerUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string; contactPhone?: string }) => void;
@@ -122,6 +167,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       orders: [],
       ordersLoading: false,
       ordersError: null,
+      returnOrders: [],
       allReviews: [],
       reviewPeriods: [],
 
@@ -283,6 +329,42 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       setDirectBuyItem: (item) => set({ directBuyItem: item }),
 
       addOrder: (order) => set({ orders: [order, ...get().orders] }),
+      submitReturnRequest: (order, selections, reason, note) => {
+        const { returnOrders } = get();
+        const now = new Date().toISOString();
+        const id = `${RETURN_ORDER_ID_PREFIX}${String(returnOrders.length + 1).padStart(6, '0')}`;
+
+        const items: OrderItem[] = selections.map(({ item, quantity }) => ({
+          ...item,
+          quantity,
+          status: 'returned',
+          deliveryFee: 0,
+          returnReason: reason,
+          returnReasonNote: note?.trim() || undefined,
+        }));
+
+        const returnOrder: Order = {
+          id,
+          createdAt: now,
+          updatedAt: now,
+          items,
+          buyerName: order.buyerName,
+          buyerPhone: order.buyerPhone,
+          buyerEmail: order.buyerEmail,
+          deliveryAddress: order.deliveryAddress,
+          deliveryDistrict: order.deliveryDistrict,
+          orderNotes: '',
+          paymentMethod: order.paymentMethod,
+          paymentStatus: order.paymentStatus,
+          grandTotal: items.reduce((s, i) => s + i.price * i.quantity, 0),
+          estimatedDelivery: '',
+          isReturn: true,
+          originalOrderId: order.id,
+        };
+
+        set({ returnOrders: [returnOrder, ...returnOrders] });
+        return returnOrder;
+      },
       updateOrderItemStatus: (orderId, productId, status) => {
         set({
           orders: get().orders.map((o) =>
@@ -517,6 +599,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           orders: [],
           ordersLoading: false,
           ordersError: null,
+          returnOrders: [],
           allReviews: [],
           reviewPeriods: [],
         }),
@@ -528,6 +611,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         deliveryAddress: state.deliveryAddress,
         deliveryDistrict: state.deliveryDistrict,
         orders: state.orders,
+        returnOrders: state.returnOrders,
         allReviews: state.allReviews,
         reviewPeriods: state.reviewPeriods,
         selectedLocation: state.selectedLocation,
@@ -555,6 +639,11 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               sellerNotes: (item as any).sellerNotes,
             })),
           }));
+        // Same status-sanity guard as migratedOrders — a returnOrders entry with
+        // an unrecognized item status would otherwise crash OrderStatusBadge.
+        const migratedReturnOrders: Order[] = (p?.returnOrders ?? []).filter(
+          (o) => o.items.every((item) => (ORDER_STATUS_VALUES as string[]).includes(item.status))
+        );
         const oldUserReviews = (p as any)?.userReviews ?? [];
         const migratedReviews: UserReview[] = (p?.allReviews ?? []).map((r) => ({
           ...r,
@@ -586,6 +675,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ...current,
           ...p,
           orders: migratedOrders,
+          returnOrders: migratedReturnOrders,
           allReviews,
           reviewPeriods: p?.reviewPeriods ?? [],
           cart: (p?.cart ?? []).map((item) => ({

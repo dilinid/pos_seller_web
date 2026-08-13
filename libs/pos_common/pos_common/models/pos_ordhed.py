@@ -23,6 +23,7 @@ class OrderStatus(str, PyEnum):
     SHIPPED = "shipped"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    RETURNED = "returned"
 
 
 class PosOrdHed(SQLModel, table=True):

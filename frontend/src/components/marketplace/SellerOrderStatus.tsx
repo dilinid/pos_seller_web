@@ -22,7 +22,7 @@ const STEPS: StepDef[] = [
 
 function stepIndex(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
-    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, cancelled: -1,
+    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, returned: -1, cancelled: -1,
   };
   return map[status] ?? 0;
 }
@@ -30,6 +30,21 @@ function stepIndex(status: OrderStatus): number {
 export const SellerOrderStatus: React.FC<SellerOrderStatusProps> = ({ status, deliveryMethod }) => {
   const current = stepIndex(status);
   const isCancelled = status === 'cancelled';
+  const isReturned = status === 'returned';
+
+  // Return pseudo-orders don't move through the normal ordering funnel —
+  // show a plain pill instead of a stepper stuck at step 0.
+  if (isReturned) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '4px',
+        padding: '2px 8px', borderRadius: '6px', background: '#fffbeb',
+      }}>
+        <span style={{ fontSize: '0.65rem', color: '#d97706', fontWeight: 700 }}>↩</span>
+        <span style={{ fontSize: '0.65rem', color: '#92400e', fontWeight: 600 }}>Returned</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>

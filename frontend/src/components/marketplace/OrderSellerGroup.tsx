@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Truck, MapPin, Star, ChevronDown, ChevronUp } from 'lucide-react';
-import type { OrderItem, UserReview, ReviewPeriod } from '../../types/marketplace.type';
+import { Link } from 'react-router-dom';
+import { Truck, MapPin, Star, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import type { Order, OrderItem, ReturnReason, UserReview, ReviewPeriod } from '../../types/marketplace.type';
 import type { SellerProfile } from '../../types/seller.type';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { SellerBadge } from './SellerBadge';
@@ -10,7 +11,9 @@ import { ProductImage } from '../ui/ProductImage';
 import { SellerOrderStatus } from './SellerOrderStatus';
 import { DeliveryTracker } from './DeliveryTracker';
 import { ReviewForm } from './ReviewForm';
+import { ReturnRequestForm } from './ReturnRequestForm';
 import { MutualReviewStatus } from './MutualReviewStatus';
+import { RETURN_REASON_META } from '../../data/order-status';
 import { formatCurrency } from '../../utils/currency';
 
 interface OrderSellerGroupProps {
@@ -24,15 +27,26 @@ interface OrderSellerGroupProps {
   userName: string;
   onSellerReviewSubmit: (review: UserReview) => void;
   onStartReviewPeriod: (sellerId: string) => void;
+  /** Quantity already returned per productId, for this order — caps the return
+   * request form and drives the "N returned" note next to each item. Omit for
+   * order views that don't support returns (e.g. a return order itself). */
+  returnedQuantities?: Record<string, number>;
+  /** Return pseudo-orders already filed against this order, for the "view
+   * return" link next to an already-returned item. */
+  returnsForOrder?: Order[];
+  onSubmitReturn?: (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => Order;
 }
 
 export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
   seller, items, orderId, existingReviews, onReviewSubmit,
   reviewPeriod, userId, userName, onSellerReviewSubmit, onStartReviewPeriod,
+  returnedQuantities = {}, returnsForOrder = [], onSubmitReturn,
 }) => {
   const [expanded, setExpanded] = useState(true);
   const [reviewingProduct, setReviewingProduct] = useState<string | null>(null);
   const [reviewingSeller, setReviewingSeller] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnSuccess, setReturnSuccess] = useState<Order | null>(null);
   const storeName = seller.storeName || 'Our Store';
 
   const deliveryMethod = items[0]?.deliveryMethod ?? 'delivery';
@@ -47,6 +61,22 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
   const periodActive = reviewPeriod && !reviewPeriod.closed;
   const canRateSeller = allDelivered && !reviewPeriod?.buyerReviewedSeller;
   const sellerAlreadyRated = existingReviews.get(`seller-${seller.id}`);
+
+  const returnEligibleItems = items
+    .filter((i) => i.status === 'delivered')
+    .map((item) => ({ item, maxQuantity: item.quantity - (returnedQuantities[item.productId] ?? 0) }))
+    .filter(({ maxQuantity }) => maxQuantity > 0);
+  const canRequestReturn = !!onSubmitReturn && returnEligibleItems.length > 0;
+
+  const findReturnForProduct = (productId: string) =>
+    returnsForOrder.find((ro) => ro.items.some((i) => i.productId === productId));
+
+  const handleReturnSubmit = (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => {
+    if (!onSubmitReturn) return;
+    const created = onSubmitReturn(selections, reason, note);
+    setReturnSuccess(created);
+    setShowReturnForm(false);
+  };
 
   return (
     <div className="premium-card" style={{ padding: '0', background: '#fff', overflow: 'hidden' }}>
@@ -128,6 +158,33 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
                   </div>
                 </div>
 
+                {(returnedQuantities[item.productId] ?? 0) > 0 && (() => {
+                  const returnOrder = findReturnForProduct(item.productId);
+                  return (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
+                      fontSize: '0.75rem', color: '#92400e', padding: '0 0 10px 0',
+                    }}>
+                      <RotateCcw size={12} />
+                      {returnedQuantities[item.productId]} {item.unit} returned
+                      {returnOrder && (
+                        <Link to={`/orders/${returnOrder.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                          View return ({returnOrder.id})
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {item.returnReason && (
+                  <div style={{
+                    fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '0 0 10px 0',
+                  }}>
+                    <strong>Reason:</strong> {RETURN_REASON_META[item.returnReason].label}
+                    {item.returnReasonNote && <> — {item.returnReasonNote}</>}
+                  </div>
+                )}
+
                 {canReview && (
                   <div style={{ padding: '0 0 12px 0' }}>
                     <button
@@ -197,6 +254,47 @@ export const OrderSellerGroup: React.FC<OrderSellerGroupProps> = ({
               </div>
             );
           })}
+
+          {returnSuccess && (
+            <div style={{
+              padding: '10px 12px', borderRadius: '8px', marginBottom: '14px',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              fontSize: '0.82rem', color: '#92400e',
+            }}>
+              Return request <strong>{returnSuccess.id}</strong> submitted.{' '}
+              <Link to={`/orders/${returnSuccess.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                View return
+              </Link>
+            </div>
+          )}
+
+          {showReturnForm ? (
+            <div style={{ marginBottom: '14px' }}>
+              <ReturnRequestForm
+                items={returnEligibleItems}
+                onCancel={() => setShowReturnForm(false)}
+                onSubmit={handleReturnSubmit}
+              />
+            </div>
+          ) : canRequestReturn && !returnSuccess && (
+            <div style={{ paddingBottom: '14px' }}>
+              <button
+                onClick={() => setShowReturnForm(true)}
+                style={{
+                  width: '100%', padding: '9px 12px', borderRadius: '10px',
+                  border: '1px solid #fde68a', cursor: 'pointer',
+                  background: '#fffbeb', fontSize: '0.8rem',
+                  fontFamily: 'var(--font-sans)', fontWeight: 600,
+                  color: '#92400e',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  transition: 'var(--transition-fast)',
+                }}
+              >
+                <RotateCcw size={14} />
+                Request Return
+              </button>
+            </div>
+          )}
         </div>
       )}
 

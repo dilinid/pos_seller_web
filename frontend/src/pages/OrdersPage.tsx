@@ -28,6 +28,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const orders = useMarketplaceStore((s) => s.orders);
+  const returnOrders = useMarketplaceStore((s) => s.returnOrders);
   const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
   const ordersError = useMarketplaceStore((s) => s.ordersError);
   const loadOrders = useMarketplaceStore((s) => s.loadOrders);
@@ -39,8 +40,12 @@ const OrdersPage: React.FC = () => {
     loadOrders();
   }, [loadOrders]);
 
+  // Return pseudo-orders are local-only (see marketplace.store.ts) — merge them
+  // in here rather than into `orders` itself, which loadOrders replaces wholesale.
+  const allOrders = useMemo(() => [...returnOrders, ...orders], [orders, returnOrders]);
+
   const filteredOrders = useMemo(() => {
-    let list = orders;
+    let list = allOrders;
     if (activeTab !== 'all') {
       list = list.filter((o) => {
         const itemStatuses = o.items.map((i) => i.status);
@@ -49,7 +54,7 @@ const OrdersPage: React.FC = () => {
       });
     }
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [orders, activeTab]);
+  }, [allOrders, activeTab]);
 
   const orderCount = filteredOrders.length;
 

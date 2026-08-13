@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { ClipboardList, Search, Clock, CheckCircle, Truck, XCircle, Package, Store } from 'lucide-react';
+import { ClipboardList, Search, Clock, CheckCircle, Truck, XCircle, Package, Store, RotateCcw } from 'lucide-react';
 import type { Order, OrderStatus } from '../types/marketplace.type';
 import { useAuthStore } from '../stores/auth.store';
 import { useSellerStore } from '../stores/seller.store';
@@ -11,6 +11,7 @@ import { ORDER_STATUS_META } from '../data/order-status';
 function getSellerStatus(order: Order, sellerId: string): OrderStatus {
   const items = order.items.filter((i) => i.sellerId === sellerId);
   if (items.length === 0) return 'pending';
+  if (items.every((i) => i.status === 'returned')) return 'returned';
   if (items.every((i) => i.status === 'cancelled')) return 'cancelled';
   if (items.every((i) => i.status === 'delivered')) return 'delivered';
   if (items.every((i) => i.status === 'shipped')) return 'shipped';
@@ -28,6 +29,7 @@ const STATUS_ICONS: Record<OrderStatus, typeof Clock> = {
   packing: Package,
   shipped: Truck,
   delivered: CheckCircle,
+  returned: RotateCcw,
   cancelled: XCircle,
 };
 
@@ -47,7 +49,11 @@ const PICKUP_TABS: Array<{ key: string; label: string; icon: typeof Clock }> = D
 const SellerOrders: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const profile = useSellerStore((s) => s.profile);
-  const orders = useMarketplaceStore((s) => s.orders);
+  const fetchedOrders = useMarketplaceStore((s) => s.orders);
+  const returnOrders = useMarketplaceStore((s) => s.returnOrders);
+  // Return pseudo-orders are local-only (see marketplace.store.ts) — merge them
+  // in here rather than into `orders` itself, which loadSellerOrders replaces wholesale.
+  const orders = useMemo(() => [...returnOrders, ...fetchedOrders], [fetchedOrders, returnOrders]);
   const loadSellerOrders = useMarketplaceStore((s) => s.loadSellerOrders);
   const sellerUpdateItemStatus = useMarketplaceStore((s) => s.sellerUpdateItemStatus);
   const sellerUpdateNote = useMarketplaceStore((s) => s.sellerUpdateNote);
@@ -94,7 +100,7 @@ const SellerOrders: React.FC = () => {
   }, [sellerOrders, activeTab, searchQuery, sellerId]);
 
   const stats = useMemo(() => {
-    const s = { pending: 0, picking: 0, packing: 0, shipped: 0, delivered: 0, total: sellerOrders.length };
+    const s = { pending: 0, picking: 0, packing: 0, shipped: 0, delivered: 0, returned: 0, total: sellerOrders.length };
     for (const o of sellerOrders) {
       const st = getSellerStatus(o, sellerId);
       if (st in s) s[st as keyof typeof s]++;
@@ -135,6 +141,7 @@ const SellerOrders: React.FC = () => {
       { label: 'Packing', value: stats.packing, color: '#8b5cf6', bg: '#f5f3ff' },
       { label: isDelivery ? 'Shipped' : 'Ready', value: stats.shipped, color: '#06b6d4', bg: '#ecfeff' },
       { label: isDelivery ? 'Delivered' : 'Picked Up', value: stats.delivered ?? 0, color: '#10b981', bg: '#ecfdf5' },
+      { label: 'Returned', value: stats.returned ?? 0, color: '#d97706', bg: '#fffbeb' },
       { label: 'Total', value: stats.total, color: 'var(--text-primary)', bg: '#f9fafb' },
     ];
   }, [stats, method]);

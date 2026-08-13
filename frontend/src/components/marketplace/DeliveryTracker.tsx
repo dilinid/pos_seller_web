@@ -9,7 +9,7 @@ interface DeliveryTrackerProps {
 
 function stepIndex(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
-    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, cancelled: -1,
+    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, returned: -1, cancelled: -1,
   };
   return map[status] ?? 0;
 }
@@ -19,8 +19,11 @@ export const DeliveryTracker: React.FC<DeliveryTrackerProps> = ({ status, seller
   const shippedStage = current >= 3;
   const deliveredStage = current >= 4;
   const isCancelled = status === 'cancelled';
+  const isReturned = status === 'returned';
 
-  if (isCancelled) return null;
+  // Neither cancelled nor returned orders are "in transit" — the delivery
+  // funnel this tracker visualizes doesn't apply to either.
+  if (isCancelled || isReturned) return null;
 
   return (
     <div style={{

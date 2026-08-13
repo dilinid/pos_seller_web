@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, MapPin, Phone, Mail, ClipboardList, Star, Store, Truck } from 'lucide-react';
+import { X, MapPin, Phone, Mail, ClipboardList, Star, Store, Truck, RotateCcw } from 'lucide-react';
 import type { Order, OrderStatus, UserReview, ReviewPeriod } from '../../types/marketplace.type';
 import { OrderStatusBadge } from '../marketplace/OrderStatusBadge';
 import { StarRating } from '../ui/StarRating';
@@ -8,6 +8,7 @@ import { SellerOrderTimeline } from './SellerOrderTimeline';
 import { SellerOrderStatusActions } from './SellerOrderStatusActions';
 import { SellerRatingForm } from '../marketplace/SellerRatingForm';
 import { MutualReviewStatus } from '../marketplace/MutualReviewStatus';
+import { RETURN_REASON_META } from '../../data/order-status';
 import { formatCurrency } from '../../utils/currency';
 
 interface SellerOrderDrawerProps {
@@ -66,6 +67,7 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
   };
 
   const orderLevelStatus = (): OrderStatus => {
+    if (sellerItems.every((i) => i.status === 'returned')) return 'returned';
     if (sellerItems.every((i) => i.status === 'cancelled')) return 'cancelled';
     if (sellerItems.every((i) => i.status === 'delivered')) return 'delivered';
     if (sellerItems.some((i) => i.status === 'shipped')) return 'shipped';
@@ -104,6 +106,18 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
         </div>
 
         <div className="pos-drawer-body">
+          {order.isReturn && (
+            <div style={{
+              margin: '16px 20px 0', padding: '10px 14px', borderRadius: '10px',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              fontSize: '0.82rem', color: '#92400e',
+            }}>
+              <RotateCcw size={15} />
+              Return request for order <strong>{order.originalOrderId}</strong>
+            </div>
+          )}
+
           <div className="pos-drawer-section">
             <div className="pos-drawer-section-title">Buyer Information</div>
             <div className="pos-info-grid">
@@ -186,6 +200,12 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
                       </span>
                     )}
                   </div>
+                  {item.returnReason && (
+                    <div style={{ fontSize: '0.74rem', color: '#92400e', marginTop: '2px' }}>
+                      <strong>Reason:</strong> {RETURN_REASON_META[item.returnReason].label}
+                      {item.returnReasonNote && <> — {item.returnReasonNote}</>}
+                    </div>
+                  )}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
@@ -309,6 +329,7 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
             </div>
           )}
 
+          {!order.isReturn && (
           <div className="pos-drawer-section" style={{ borderBottom: 'none' }}>
             <div className="pos-drawer-section-title">Seller Notes</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -334,6 +355,7 @@ export const SellerOrderDrawer: React.FC<SellerOrderDrawerProps> = ({
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </>

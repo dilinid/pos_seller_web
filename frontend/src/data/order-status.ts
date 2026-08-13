@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus, SellerPayoutStatus } from '../types/marketplace.type';
+import type { OrderStatus, PaymentStatus, ReturnReason, SellerPayoutStatus } from '../types/marketplace.type';
 
 interface StatusMeta {
   label: string;
@@ -15,6 +15,7 @@ export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
   packing: { label: 'Packing', color: '#8b5cf6', bg: '#f5f3ff' },
   shipped: { label: 'Shipped', color: '#06b6d4', bg: '#ecfeff' },
   delivered: { label: 'Delivered', color: '#10b981', bg: '#ecfdf5' },
+  returned: { label: 'Returned', color: '#d97706', bg: '#fffbeb' },
   cancelled: { label: 'Cancelled', color: '#ef4444', bg: '#fef2f2' },
 };
 
@@ -42,10 +43,21 @@ export const ORDER_TIMELINE_STEPS = [
 
 export function getTimelineStep(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
-    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, cancelled: -1,
+    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, returned: -1, cancelled: -1,
   };
   return map[status] ?? 0;
 }
+
+// Preset reasons offered on the buyer-side return request form.
+export const RETURN_REASON_META: Record<ReturnReason, { label: string }> = {
+  defective: { label: 'Defective / Damaged' },
+  wrong_item: { label: 'Wrong Item Received' },
+  no_longer_needed: { label: 'No Longer Needed' },
+  wrong_size: { label: 'Wrong Size / Fit' },
+  other: { label: 'Other' },
+};
+
+export const RETURN_REASON_VALUES = Object.keys(RETURN_REASON_META) as ReturnReason[];
 
 export interface StatusTransition {
   from: OrderStatus;
