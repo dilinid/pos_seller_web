@@ -9,19 +9,19 @@ interface OrderProgressStepperProps {
 export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({ status, deliveryMethod }) => {
   const current = getTimelineStep(status);
   const isCancelled = status === 'cancelled';
-  const isReturned = status === 'returned';
+  const isReturned = status === 'returned' || status === 'refunded';
 
-  // Return pseudo-orders don't move through the normal ordering funnel —
-  // show a plain pill instead of a stepper stuck at step 0.
+  // Return orders don't move through the normal ordering funnel — show a
+  // plain pill instead of a stepper stuck at step 0.
   if (isReturned) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: '4px',
-        padding: '2px 8px', borderRadius: '6px', background: ORDER_STATUS_META.returned.bg,
+        padding: '2px 8px', borderRadius: '6px', background: ORDER_STATUS_META[status].bg,
       }}>
-        <span style={{ fontSize: '0.65rem', color: ORDER_STATUS_META.returned.color, fontWeight: 700 }}>↩</span>
-        <span style={{ fontSize: '0.65rem', color: ORDER_STATUS_META.returned.color, fontWeight: 600 }}>
-          {ORDER_STATUS_META.returned.label}
+        <span style={{ fontSize: '0.65rem', color: ORDER_STATUS_META[status].color, fontWeight: 700 }}>↩</span>
+        <span style={{ fontSize: '0.65rem', color: ORDER_STATUS_META[status].color, fontWeight: 600 }}>
+          {ORDER_STATUS_META[status].label}
         </span>
       </div>
     );

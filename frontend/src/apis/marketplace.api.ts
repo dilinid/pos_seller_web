@@ -106,6 +106,9 @@ export interface OrderItemRaw {
   deliveryMethod: 'delivery' | 'pickup';
   deliveryFee: number;
   status: OrderStatus;
+  isReturnable: boolean;
+  returnReason: string | null;
+  returnReasonNote: string | null;
 }
 
 export interface OrderRaw {
@@ -123,6 +126,9 @@ export interface OrderRaw {
   paymentStatus: PaymentStatus;
   grandTotal: number;
   estimatedDelivery: string;
+  isReturn: boolean;
+  originalOrderId: string | null;
+  returnEligible: boolean;
 }
 
 export function mapOrderRawToOrder(raw: OrderRaw): Order {
@@ -137,6 +143,9 @@ export function mapOrderRawToOrder(raw: OrderRaw): Order {
     deliveryMethod: item.deliveryMethod,
     deliveryFee: item.deliveryFee,
     status: item.status,
+    isReturnable: item.isReturnable,
+    returnReason: (item.returnReason ?? undefined) as OrderItem['returnReason'],
+    returnReasonNote: item.returnReasonNote ?? undefined,
   }));
 
   return {
@@ -154,6 +163,9 @@ export function mapOrderRawToOrder(raw: OrderRaw): Order {
     paymentStatus: raw.paymentStatus,
     grandTotal: raw.grandTotal,
     estimatedDelivery: raw.estimatedDelivery,
+    isReturn: raw.isReturn,
+    originalOrderId: raw.originalOrderId ?? undefined,
+    returnEligible: raw.returnEligible,
   };
 }
 
@@ -171,5 +183,42 @@ export async function fetchAdminOrders(): Promise<OrderRaw[]> {
 
 export async function fetchOrderById(orderId: string): Promise<OrderRaw> {
   const response = await api.get<OrderRaw>(`/api/marketplace/orders/${encodeURIComponent(orderId)}`);
+  return response.data;
+}
+
+export interface ReturnRequestItem {
+  itemCode: string;
+  quantity: number;
+}
+
+export interface ReturnRequestBody {
+  items: ReturnRequestItem[];
+  reason: string;
+  note?: string;
+}
+
+/** Files a return request against one of the buyer's own delivered orders —
+ * creates a real 'RTN' pos_ordhed row (no approval step). */
+export async function submitReturn(ordNo: string, body: ReturnRequestBody): Promise<OrderRaw> {
+  const response = await api.post<OrderRaw>(`/api/marketplace/orders/${encodeURIComponent(ordNo)}/return`, body);
+  return response.data;
+}
+
+/** The current buyer's own return requests. */
+export async function fetchMyReturns(): Promise<OrderRaw[]> {
+  const response = await api.get<OrderRaw[]>('/api/marketplace/orders/returns');
+  return response.data;
+}
+
+/** Every return request across all customers — backs the store dashboard's
+ * refunding queue. */
+export async function fetchSellerReturns(): Promise<OrderRaw[]> {
+  const response = await api.get<OrderRaw[]>('/api/marketplace/seller/orders/returns');
+  return response.data;
+}
+
+/** Store-side action: marks a filed return as refunded. */
+export async function refundReturn(rtnOrdNo: string): Promise<OrderRaw> {
+  const response = await api.post<OrderRaw>(`/api/marketplace/seller/orders/returns/${encodeURIComponent(rtnOrdNo)}/refund`);
   return response.data;
 }

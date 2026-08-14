@@ -32,16 +32,18 @@ const OrdersPage: React.FC = () => {
   const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
   const ordersError = useMarketplaceStore((s) => s.ordersError);
   const loadOrders = useMarketplaceStore((s) => s.loadOrders);
+  const loadReturnOrders = useMarketplaceStore((s) => s.loadReturnOrders);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('all');
 
   useEffect(() => {
     loadOrders();
-  }, [loadOrders]);
+    loadReturnOrders();
+  }, [loadOrders, loadReturnOrders]);
 
-  // Return pseudo-orders are local-only (see marketplace.store.ts) — merge them
-  // in here rather than into `orders` itself, which loadOrders replaces wholesale.
+  // Return orders are fetched separately (see marketplace.store.ts) — merge
+  // them in here rather than into `orders` itself, which loadOrders replaces wholesale.
   const allOrders = useMemo(() => [...returnOrders, ...orders], [orders, returnOrders]);
 
   const filteredOrders = useMemo(() => {

@@ -18,7 +18,7 @@ export const AdminOrderTimeline: React.FC<AdminOrderTimelineProps> = ({
 }) => {
   const current = getTimelineStep(status);
   const isCancelled = status === 'cancelled';
-  const isReturned = status === 'returned';
+  const isReturned = status === 'returned' || status === 'refunded';
 
   const steps = ORDER_TIMELINE_STEPS.filter((s) => {
     if (deliveryMethod === 'pickup' && s === 'shipped') return false;
@@ -115,12 +115,12 @@ export const AdminOrderTimeline: React.FC<AdminOrderTimelineProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px' }}>
             <div style={{
               width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0,
-              background: ORDER_STATUS_META.returned.color,
+              background: ORDER_STATUS_META[status].color,
             }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: ORDER_STATUS_META.returned.color }}>
-              {ORDER_STATUS_META.returned.label}
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: ORDER_STATUS_META[status].color }}>
+              {ORDER_STATUS_META[status].label}
             </span>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
               {formatTime(updatedAt)}

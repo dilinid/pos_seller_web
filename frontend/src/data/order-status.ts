@@ -16,6 +16,7 @@ export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
   shipped: { label: 'Shipped', color: '#06b6d4', bg: '#ecfeff' },
   delivered: { label: 'Delivered', color: '#10b981', bg: '#ecfdf5' },
   returned: { label: 'Returned', color: '#d97706', bg: '#fffbeb' },
+  refunded: { label: 'Refunded', color: '#16a34a', bg: '#dcfce7' },
   cancelled: { label: 'Cancelled', color: '#ef4444', bg: '#fef2f2' },
 };
 
@@ -41,7 +42,7 @@ export const ORDER_TIMELINE_STEPS: OrderStatus[] = ['pending', 'picking', 'packi
 
 export function getTimelineStep(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
-    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, returned: -1, cancelled: -1,
+    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, returned: -1, refunded: -1, cancelled: -1,
   };
   return map[status] ?? 0;
 }

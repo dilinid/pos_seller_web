@@ -11,6 +11,7 @@ import { ORDER_STATUS_META } from '../data/order-status';
 function getStoreOrderStatus(order: Order): OrderStatus {
   const items = order.items;
   if (items.length === 0) return 'pending';
+  if (items.every((i) => i.status === 'refunded')) return 'refunded';
   if (items.every((i) => i.status === 'returned')) return 'returned';
   if (items.every((i) => i.status === 'cancelled')) return 'cancelled';
   if (items.every((i) => i.status === 'delivered')) return 'delivered';
@@ -30,6 +31,7 @@ const STATUS_ICONS: Record<OrderStatus, typeof Clock> = {
   shipped: Truck,
   delivered: CheckCircle,
   returned: RotateCcw,
+  refunded: CheckCircle,
   cancelled: XCircle,
 };
 
@@ -51,10 +53,12 @@ const AdminOrders: React.FC = () => {
   const profile = useStoreStore((s) => s.profile);
   const fetchedOrders = useMarketplaceStore((s) => s.orders);
   const returnOrders = useMarketplaceStore((s) => s.returnOrders);
-  // Return pseudo-orders are local-only (see marketplace.store.ts) — merge them
-  // in here rather than into `orders` itself, which loadAdminOrders replaces wholesale.
+  // Return orders are fetched separately (see marketplace.store.ts) — merge
+  // them in here rather than into `orders` itself, which loadAdminOrders replaces wholesale.
   const orders = useMemo(() => [...returnOrders, ...fetchedOrders], [fetchedOrders, returnOrders]);
   const loadAdminOrders = useMarketplaceStore((s) => s.loadAdminOrders);
+  const loadAdminReturnOrders = useMarketplaceStore((s) => s.loadAdminReturnOrders);
+  const refundOrder = useMarketplaceStore((s) => s.refundOrder);
   const adminUpdateItemStatus = useMarketplaceStore((s) => s.adminUpdateItemStatus);
   const adminUpdateNote = useMarketplaceStore((s) => s.adminUpdateNote);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
@@ -65,7 +69,13 @@ const AdminOrders: React.FC = () => {
   const [method, setMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  // Re-derived from `orders` on every render (rather than snapshotting the
+  // clicked Order object) so the drawer reflects a refund immediately.
+  const selectedOrder = useMemo(
+    () => (selectedOrderId ? orders.find((o) => o.id === selectedOrderId) ?? null : null),
+    [orders, selectedOrderId]
+  );
 
   // Still needed for ReviewPeriod bookkeeping (see marketplace.store.ts) — every
   // review period belongs to this one store, tracked by its profile id.
@@ -73,7 +83,15 @@ const AdminOrders: React.FC = () => {
 
   useEffect(() => {
     loadAdminOrders();
-  }, [loadAdminOrders]);
+    loadAdminReturnOrders();
+  }, [loadAdminOrders, loadAdminReturnOrders]);
+
+  const handleRefund = useCallback(
+    async (rtnOrdNo: string) => {
+      await refundOrder(rtnOrdNo);
+    },
+    [refundOrder]
+  );
 
   const statusTabs = method === 'pickup' ? PICKUP_TABS : DELIVERY_TABS;
 
@@ -100,7 +118,7 @@ const AdminOrders: React.FC = () => {
   }, [storeOrders, activeTab, searchQuery]);
 
   const stats = useMemo(() => {
-    const s = { pending: 0, picking: 0, packing: 0, shipped: 0, delivered: 0, returned: 0, total: storeOrders.length };
+    const s = { pending: 0, picking: 0, packing: 0, shipped: 0, delivered: 0, returned: 0, refunded: 0, total: storeOrders.length };
     for (const o of storeOrders) {
       const st = getStoreOrderStatus(o);
       if (st in s) s[st as keyof typeof s]++;
@@ -142,6 +160,7 @@ const AdminOrders: React.FC = () => {
       { label: isDelivery ? 'Shipped' : 'Ready', value: stats.shipped, color: '#06b6d4', bg: '#ecfeff' },
       { label: isDelivery ? 'Delivered' : 'Picked Up', value: stats.delivered ?? 0, color: '#10b981', bg: '#ecfdf5' },
       { label: 'Returned', value: stats.returned ?? 0, color: '#d97706', bg: '#fffbeb' },
+      { label: 'Refunded', value: stats.refunded ?? 0, color: '#16a34a', bg: '#dcfce7' },
       { label: 'Total', value: stats.total, color: 'var(--text-primary)', bg: '#f9fafb' },
     ];
   }, [stats, method]);
@@ -152,7 +171,7 @@ const AdminOrders: React.FC = () => {
         <AdminOrderDrawer
           order={selectedOrder}
           storeId={storeId}
-          onClose={() => setSelectedOrder(null)}
+          onClose={() => setSelectedOrderId(null)}
           onUpdateItemStatus={handleUpdateItemStatus}
           onUpdateNote={handleUpdateNote}
           allReviews={allReviews}
@@ -160,6 +179,7 @@ const AdminOrders: React.FC = () => {
           adminUserId={user?.id}
           adminUserName={user?.name}
           onSubmitBuyerReview={submitReview}
+          onRefund={handleRefund}
         />
       )}
 
@@ -272,7 +292,7 @@ const AdminOrders: React.FC = () => {
               key={order.id}
               order={order}
               deliveryMethod={method}
-              onClick={() => setSelectedOrder(order)}
+              onClick={() => setSelectedOrderId(order.id)}
             />
           ))}
         </div>

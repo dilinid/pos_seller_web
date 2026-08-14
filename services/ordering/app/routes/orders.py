@@ -1,6 +1,10 @@
 """Marketplace order endpoints — place orders and let a buyer read back their
 own order history, backed by the real pos_ordhed/pos_orddtl rows. Order type
-'ONL' distinguishes these from in-store POS orders ('POS').
+'ONL' distinguishes these from in-store POS orders ('POS'); return requests
+are 'RTN' rows linked back to their source order via `refno` (see
+request_return/refund_return below) — no approval step, so filing a return
+immediately saves it as RETURNED and the store dashboard processes it from
+there to REFUNDED.
 
 Owned by: Ordering service (pos_ordhed, pos_orddtl, pos_invhed, pos_invdtl,
 pos_invpay). Picking and Packing read these tables directly (shared physical
@@ -9,7 +13,7 @@ Picking's workflow go through this service's /internal/orders/* API (see
 app/routes/internal.py) instead.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Literal, Optional
 
@@ -30,6 +34,7 @@ from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_orddtl import PosOrdDtl
 from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
 from pos_common.models.pos_paymode import PosPayMode
+from pos_common.models.pos_setup import PosSetup
 
 router = APIRouter(prefix="/api/marketplace", tags=["orders"])
 
@@ -37,6 +42,25 @@ ORDER_TYPE_ONLINE = "ONL"
 ORD_NO_PREFIX = "O"
 ORD_NO_DIGITS = 6  # prefix + digits fills the 7-char OrdNo column
 MAX_ORD_NO_ATTEMPTS = 5
+
+# Return requests are their own pos_ordhed row (type 'RTN'), linked back to the
+# original order via `refno` — the same generic-column-reuse trick 'ONL' uses
+# (pricemode for payment method, refno for the online invoice's source order).
+# No pos_return_type/new columns: pricemode holds a short reason code below and
+# ordaddress (meaningless for a return, which never ships anywhere) holds the
+# buyer's free-text note instead.
+RETURN_ORDER_TYPE = "RTN"
+RETURN_ORD_NO_PREFIX = "R"
+
+RETURN_REASON_TO_PRICEMODE = {
+    "defective": "DEF",
+    "wrong_item": "WIT",
+    "no_longer_needed": "NLN",
+    "wrong_size": "WSZ",
+    "other": "OTH",
+}
+PRICEMODE_TO_RETURN_REASON = {v: k for k, v in RETURN_REASON_TO_PRICEMODE.items()}
+ReturnReasonLiteral = Literal["defective", "wrong_item", "no_longer_needed", "wrong_size", "other"]
 
 # pos_ordhed.InvNo caps invoice numbers at 7 chars, so online invoice numbers get
 # their own short prefix — mirrors ORD_NO_PREFIX's scheme, kept out of the external
@@ -85,6 +109,17 @@ class PlaceOrderResponse(BaseModel):
     createdAt: str
 
 
+class ReturnRequestItem(BaseModel):
+    itemCode: str
+    quantity: float = Field(gt=0)
+
+
+class ReturnRequestBody(BaseModel):
+    items: list[ReturnRequestItem]
+    reason: ReturnReasonLiteral
+    note: Optional[str] = None
+
+
 class OrderItemOut(BaseModel):
     productId: str
     productName: str
@@ -96,6 +131,12 @@ class OrderItemOut(BaseModel):
     deliveryMethod: Literal["delivery", "pickup"]
     deliveryFee: float
     status: str
+    # Whether this line's item is eligible to be returned at all
+    # (pos_itemlots.is_returnable) — independent of whether this particular
+    # order has any return window/quantity left.
+    isReturnable: bool = False
+    returnReason: Optional[str] = None
+    returnReasonNote: Optional[str] = None
 
 
 class OrderOut(BaseModel):
@@ -113,6 +154,12 @@ class OrderOut(BaseModel):
     paymentStatus: Literal["pending", "paid"]
     grandTotal: float
     estimatedDelivery: str
+    # True for RTN pseudo-orders (a return request against `originalOrderId`).
+    isReturn: bool = False
+    originalOrderId: Optional[str] = None
+    # Only meaningful (and only ever True) on a non-return ONL order: whether
+    # the buyer can still file a return request against it right now.
+    returnEligible: bool = False
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -147,7 +194,36 @@ def _item_thumbnail(session: Session, item_code: Optional[str]) -> Optional[str]
     return f"/{path}"
 
 
+def _returned_quantities_for_order(session: Session, ord_no: str) -> dict[str, Decimal]:
+    """Sums quantities already returned (non-cancelled RTN lines) against a
+    given original order, keyed by itemcode — used both to cap how much of a
+    line the buyer can still return and to decide per-item return eligibility."""
+    stmt = (
+        select(PosOrdDtl.itemcode, PosOrdDtl.qty)
+        .join(PosOrdHed, PosOrdHed.OrdNo == PosOrdDtl.OrdNo)
+        .where(PosOrdHed.type == RETURN_ORDER_TYPE)
+        .where(PosOrdHed.refno == ord_no)
+        .where(PosOrdHed.cancel.isnot(True))
+        .where(PosOrdDtl.cancel.isnot(True))
+    )
+    totals: dict[str, Decimal] = {}
+    for itemcode, qty in session.exec(stmt):
+        if not itemcode:
+            continue
+        totals[itemcode] = totals.get(itemcode, Decimal("0")) + (qty or Decimal("0"))
+    return totals
+
+
+def _within_return_window(order: PosOrdHed, setup: Optional[PosSetup]) -> bool:
+    if setup is None or setup.setup_rtndays is None or order.created_at is None:
+        return True
+    deadline = order.created_at + timedelta(days=setup.setup_rtndays)
+    return datetime.utcnow() <= deadline
+
+
 def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> OrderOut:
+    is_return = order.type == RETURN_ORDER_TYPE
+
     lines = session.exec(
         select(PosOrdDtl)
         # `cancel != True` excludes NULL rows under SQL's three-valued logic (NULL != True
@@ -156,9 +232,28 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
         .order_by(PosOrdDtl.lineno)
     ).all()
 
-    delivery_method: Literal["delivery", "pickup"] = "delivery" if order.ordaddress else "pickup"
-    total_fee = float(order.addamount) if order.addamount is not None else 0.0
+    original_order: Optional[PosOrdHed] = None
+    return_reason: Optional[str] = None
+    return_note: Optional[str] = None
 
+    if is_return:
+        original_order = session.get(PosOrdHed, order.refno) if order.refno else None
+        delivery_method: Literal["delivery", "pickup"] = "delivery" if (original_order and original_order.ordaddress) else "pickup"
+        total_fee = 0.0
+        return_reason = PRICEMODE_TO_RETURN_REASON.get(order.pricemode or "")
+        return_note = order.ordaddress
+    else:
+        delivery_method = "delivery" if order.ordaddress else "pickup"
+        total_fee = float(order.addamount) if order.addamount is not None else 0.0
+
+    already_returned = {} if is_return else _returned_quantities_for_order(session, order.OrdNo)
+
+    # Only needed to decide returnEligible below — skip the extra query when it
+    # can't possibly matter (return rows and non-delivered orders are never
+    # return-eligible regardless of the window).
+    setup = session.exec(select(PosSetup)).first() if (not is_return and order.status == OrderStatus.DELIVERED) else None
+
+    has_returnable_remaining = False
     items: list[OrderItemOut] = []
     for idx, line in enumerate(lines):
         lot = None
@@ -167,6 +262,12 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
             if line.storeId:
                 lot_stmt = lot_stmt.where(PosItemLots.itemlots_loc == line.storeId)
             lot = session.exec(lot_stmt).first()
+
+        is_returnable = bool(lot and lot.is_returnable)
+        if is_returnable and not is_return and line.itemcode:
+            remaining = (line.qty or Decimal("0")) - already_returned.get(line.itemcode, Decimal("0"))
+            if remaining > 0:
+                has_returnable_remaining = True
 
         items.append(
             OrderItemOut(
@@ -181,6 +282,9 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
                 # first item only so summing item fees doesn't overcount.
                 deliveryFee=total_fee if idx == 0 else 0.0,
                 status=order.status.value if hasattr(order.status, "value") else str(order.status),
+                isReturnable=is_returnable,
+                returnReason=return_reason,
+                returnReasonNote=return_note,
             )
         )
 
@@ -188,7 +292,20 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
     pay_amount = order.payamount if order.payamount is not None else Decimal("0")
     payment_status: Literal["pending", "paid"] = "paid" if pay_amount >= net_amount and net_amount > 0 else "pending"
 
-    payment_method = PRICEMODE_TO_PAYMENT_METHOD.get(order.pricemode or "", "card")
+    if is_return:
+        source_pricemode = original_order.pricemode if original_order else None
+        payment_method = PRICEMODE_TO_PAYMENT_METHOD.get(source_pricemode or "", "card")
+        delivery_address = (original_order.ordaddress or "") if original_order else ""
+    else:
+        payment_method = PRICEMODE_TO_PAYMENT_METHOD.get(order.pricemode or "", "card")
+        delivery_address = order.ordaddress or ""
+
+    return_eligible = bool(
+        not is_return
+        and order.status == OrderStatus.DELIVERED
+        and has_returnable_remaining
+        and _within_return_window(order, setup)
+    )
 
     return OrderOut(
         id=order.OrdNo,
@@ -198,13 +315,16 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
         buyerName=customer.cus_name or "Unknown",
         buyerPhone=customer.cus_tep1,
         buyerEmail=customer.cus_email,
-        deliveryAddress=order.ordaddress or "",
+        deliveryAddress=delivery_address,
         deliveryDistrict="",
         orderNotes="",
         paymentMethod=payment_method,
         paymentStatus=payment_status,
         grandTotal=float(net_amount),
-        estimatedDelivery=ESTIMATED_DELIVERY,
+        estimatedDelivery=ESTIMATED_DELIVERY if not is_return else "",
+        isReturn=is_return,
+        originalOrderId=order.refno if is_return else None,
+        returnEligible=return_eligible,
     )
 
 
@@ -240,6 +360,24 @@ def _generate_inv_no(session: Session) -> str:
             next_num = int(suffix) + 1
             break
     return f"{INV_NO_PREFIX}{next_num:0{INV_NO_DIGITS}d}"
+
+
+def _generate_return_ord_no(session: Session) -> str:
+    """Sequential OrdNo for return orders under their own prefix — same scheme
+    as _generate_ord_no, kept as a separate counter so 'RTN' order numbers
+    never collide with 'ONL' ones."""
+    stmt = (
+        select(PosOrdHed.OrdNo)
+        .where(PosOrdHed.OrdNo.like(f"{RETURN_ORD_NO_PREFIX}%"))
+        .order_by(PosOrdHed.OrdNo.desc())
+    )
+    next_num = 1
+    for ord_no in session.exec(stmt):
+        suffix = ord_no[len(RETURN_ORD_NO_PREFIX):]
+        if suffix.isdigit():
+            next_num = int(suffix) + 1
+            break
+    return f"{RETURN_ORD_NO_PREFIX}{next_num:0{ORD_NO_DIGITS}d}"
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
@@ -422,6 +560,137 @@ def place_order(
     ) from last_error
 
 
+@router.post("/orders/{ord_no}/return", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
+def request_return(
+    ord_no: str,
+    body: ReturnRequestBody,
+    session: Session = Depends(get_session),
+    current_user: TokenClaims = Depends(get_current_user),
+):
+    """Files a return request against one of the buyer's own delivered orders.
+    No approval step: this immediately creates a 'RTN' pos_ordhed row with
+    status RETURNED, which the store dashboard then processes for refund (see
+    refund_return below). Inventory is NOT restocked here — only once the
+    store actually refunds it."""
+    if not body.items:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Return must include at least one item")
+
+    customer = _require_customer(session, current_user)
+
+    order = session.get(PosOrdHed, ord_no)
+    if not order or order.type != ORDER_TYPE_ONLINE or order.member != customer.cus_code:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    if order.status != OrderStatus.DELIVERED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only delivered orders can be returned")
+
+    setup = session.exec(select(PosSetup)).first()
+    if not _within_return_window(order, setup):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The return window for this order has expired")
+
+    order_lines = {
+        line.itemcode: line
+        for line in session.exec(
+            select(PosOrdDtl).where(PosOrdDtl.OrdNo == ord_no, PosOrdDtl.cancel.isnot(True))
+        ).all()
+        if line.itemcode
+    }
+    already_returned = _returned_quantities_for_order(session, ord_no)
+
+    validated: list[tuple[PosOrdDtl, Decimal]] = []
+    for item in body.items:
+        line = order_lines.get(item.itemCode)
+        if line is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Item '{item.itemCode}' is not part of this order",
+            )
+
+        lot_stmt = select(PosItemLots).where(PosItemLots.itemlots_code == item.itemCode)
+        if line.storeId:
+            lot_stmt = lot_stmt.where(PosItemLots.itemlots_loc == line.storeId)
+        lot = session.exec(lot_stmt).first()
+        if not lot or not lot.is_returnable:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Item '{item.itemCode}' is not eligible for return",
+            )
+
+        qty = Decimal(str(item.quantity))
+        ordered_qty = line.qty or Decimal("0")
+        remaining = ordered_qty - already_returned.get(item.itemCode, Decimal("0"))
+        if qty > remaining:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Only {remaining} unit(s) of '{item.itemCode}' are eligible to be returned",
+            )
+
+        validated.append((line, qty))
+
+    reason_code = RETURN_REASON_TO_PRICEMODE[body.reason]
+    now = datetime.utcnow()
+    created_by_id = str(current_user.id) if current_user.id is not None else None
+    note = (body.note or "").strip()[:200] or None
+
+    last_error: Optional[Exception] = None
+    for _ in range(MAX_ORD_NO_ATTEMPTS):
+        try:
+            rtn_ord_no = _generate_return_ord_no(session)
+            gross_amount = sum(((line.sprice or Decimal("0")) * qty for line, qty in validated), Decimal("0"))
+
+            rtn_order = PosOrdHed(
+                OrdNo=rtn_ord_no,
+                type=RETURN_ORDER_TYPE,
+                status=OrderStatus.RETURNED,
+                is_invoiced=False,
+                created_at=now,
+                created_by_id=created_by_id,
+                storeId=order.storeId,
+                member=customer.cus_code,
+                refno=ord_no,
+                pricemode=reason_code,
+                ordaddress=note,
+                grossamount=gross_amount,
+                netamount=gross_amount,
+                payamount=Decimal("0"),
+                dueamount=gross_amount,
+                cancel=False,
+            )
+            session.add(rtn_order)
+
+            for lineno, (line, qty) in enumerate(validated, start=1):
+                sprice = line.sprice or Decimal("0")
+                session.add(
+                    PosOrdDtl(
+                        OrdNo=rtn_ord_no,
+                        lineno=lineno,
+                        created_at=now,
+                        created_by_id=created_by_id,
+                        storeId=line.storeId,
+                        itemcode=line.itemcode,
+                        qty=qty,
+                        sprice=sprice,
+                        amount=sprice * qty,
+                        cancel=False,
+                    )
+                )
+
+            session.commit()
+        except IntegrityError as exc:
+            session.rollback()
+            last_error = exc
+            continue
+
+        session.refresh(rtn_order)
+        return _to_order_out(session, rtn_order, customer)
+
+    session.rollback()
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to allocate a return order number. Please try again.",
+    ) from last_error
+
+
 @router.get("/orders", response_model=list[OrderOut])
 def list_my_orders(
     session: Session = Depends(get_session),
@@ -440,6 +709,25 @@ def list_my_orders(
     return [_to_order_out(session, order, customer) for order in orders]
 
 
+@router.get("/orders/returns", response_model=list[OrderOut])
+def list_my_returns(
+    session: Session = Depends(get_session),
+    current_user: TokenClaims = Depends(get_current_user),
+):
+    """The current buyer's own return requests, newest first. Registered ahead
+    of GET /orders/{ord_no} below so 'returns' isn't swallowed as an ord_no."""
+    customer = _require_customer(session, current_user)
+
+    stmt = (
+        select(PosOrdHed)
+        .where(PosOrdHed.type == RETURN_ORDER_TYPE)
+        .where(PosOrdHed.member == customer.cus_code)
+        .order_by(PosOrdHed.created_at.desc())
+    )
+    orders = session.exec(stmt).all()
+    return [_to_order_out(session, order, customer) for order in orders]
+
+
 @router.get("/orders/{ord_no}", response_model=OrderOut)
 def get_my_order(
     ord_no: str,
@@ -449,7 +737,7 @@ def get_my_order(
     customer = _require_customer(session, current_user)
 
     order = session.get(PosOrdHed, ord_no)
-    if not order or order.type != ORDER_TYPE_ONLINE or order.member != customer.cus_code:
+    if not order or order.type not in (ORDER_TYPE_ONLINE, RETURN_ORDER_TYPE) or order.member != customer.cus_code:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
     return _to_order_out(session, order, customer)
@@ -479,3 +767,70 @@ def list_seller_orders(
         )
         results.append(_to_order_out(session, order, customer or PosCustomer()))
     return results
+
+
+@router.get("/seller/orders/returns", response_model=list[OrderOut])
+def list_seller_returns(
+    session: Session = Depends(get_session),
+):
+    """Every return request across all customers — the store dashboard's
+    refunding queue. Nested under /seller/orders so it reaches this service
+    through the existing gateway route with no nginx changes."""
+    stmt = (
+        select(PosOrdHed)
+        .where(PosOrdHed.type == RETURN_ORDER_TYPE)
+        .order_by(PosOrdHed.created_at.desc())
+    )
+    orders = session.exec(stmt).all()
+
+    results: list[OrderOut] = []
+    for order in orders:
+        customer = (
+            session.exec(select(PosCustomer).where(PosCustomer.cus_code == order.member)).first()
+            if order.member
+            else None
+        )
+        results.append(_to_order_out(session, order, customer or PosCustomer()))
+    return results
+
+
+@router.post("/seller/orders/returns/{rtn_ord_no}/refund", response_model=OrderOut)
+def refund_return(
+    rtn_ord_no: str,
+    session: Session = Depends(get_session),
+    current_user: TokenClaims = Depends(get_current_user),
+):
+    """Store-side action: marks a filed return as refunded. This is the only
+    status transition a return ever makes (no approval/reject path). Stock is
+    restocked here, at refund time, not when the return was first filed."""
+    order = session.get(PosOrdHed, rtn_ord_no)
+    if not order or order.type != RETURN_ORDER_TYPE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Return not found")
+    if order.status != OrderStatus.RETURNED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Return status is '{order.status.value}', expected 'returned'",
+        )
+
+    lines = session.exec(
+        select(PosOrdDtl).where(PosOrdDtl.OrdNo == rtn_ord_no, PosOrdDtl.cancel.isnot(True))
+    ).all()
+    for line in lines:
+        if line.itemcode and line.qty:
+            adjust_itemlots_stock(session, line.itemcode, line.storeId, sih_delta=line.qty)
+
+    order.status = OrderStatus.REFUNDED
+    order.payamount = order.netamount or Decimal("0")
+    order.dueamount = Decimal("0")
+    order.md_at = datetime.utcnow()
+    order.md_by_id = str(current_user.id) if current_user.id is not None else None
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    customer = (
+        session.exec(select(PosCustomer).where(PosCustomer.cus_code == order.member)).first()
+        if order.member
+        else None
+    )
+    return _to_order_out(session, order, customer or PosCustomer())

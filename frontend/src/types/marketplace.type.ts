@@ -49,11 +49,8 @@ export interface CartItem {
 
 export type PaymentMethodType = 'card' | 'cod';
 
-// Mirrors the backend's OrderStatus enum (backend/app/models/pos_ordhed.py) 1:1,
-// plus 'returned' — a UI-only addition ahead of backend support (see
-// stores/marketplace.store.ts's returnOrders: return requests aren't persisted
-// via the API yet, only modeled client-side as pseudo-orders with this status).
-export type OrderStatus = 'pending' | 'picking' | 'packing' | 'shipped' | 'delivered' | 'returned' | 'cancelled';
+// Mirrors the backend's OrderStatus enum (libs/pos_common/pos_common/models/pos_ordhed.py) 1:1.
+export type OrderStatus = 'pending' | 'picking' | 'packing' | 'shipped' | 'delivered' | 'returned' | 'refunded' | 'cancelled';
 
 export type PaymentStatus = 'pending' | 'paid';
 
@@ -82,7 +79,10 @@ export interface OrderItem {
   payoutMethod?: string;
   payoutRef?: string;
   payoutNote?: string;
-  /** Set only on items belonging to a return pseudo-order (Order.isReturn). */
+  /** Whether pos_itemlots.is_returnable is set for this item — gates whether
+   * it can be selected on the return request form at all. */
+  isReturnable?: boolean;
+  /** Set only on items belonging to a return order (Order.isReturn). */
   returnReason?: ReturnReason;
   returnReasonNote?: string;
 }
@@ -102,13 +102,14 @@ export interface Order {
   paymentStatus: PaymentStatus;
   grandTotal: number;
   estimatedDelivery: string;
-  /** True for the client-only return pseudo-orders created by
-   * submitReturnRequest — see stores/marketplace.store.ts. Would map to a real
-   * pos_ordhed row with type 'RTN' (from pos_return_type) once the backend
-   * supports returns; for now these live only in local persisted state. */
+  /** True for return orders (a real pos_ordhed row with type 'RTN') created by
+   * submitReturnRequest — see stores/marketplace.store.ts. */
   isReturn?: boolean;
   /** The real order this return was filed against. Only set when isReturn is true. */
   originalOrderId?: string;
+  /** Only meaningful (and only ever true) on a non-return order: whether the
+   * buyer can still file a return request against it right now. */
+  returnEligible?: boolean;
 }
 
 export interface UserReview {

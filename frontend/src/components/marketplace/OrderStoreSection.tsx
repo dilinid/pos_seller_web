@@ -31,10 +31,10 @@ interface OrderStoreSectionProps {
    * request form and drives the "N returned" note next to each item. Omit for
    * order views that don't support returns (e.g. a return order itself). */
   returnedQuantities?: Record<string, number>;
-  /** Return pseudo-orders already filed against this order, for the "view
-   * return" link next to an already-returned item. */
+  /** Return orders already filed against this order, for the "view return"
+   * link next to an already-returned item. */
   returnsForOrder?: Order[];
-  onSubmitReturn?: (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => Order;
+  onSubmitReturn?: (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => Promise<Order>;
 }
 
 export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
@@ -47,6 +47,8 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
   const [reviewingSeller, setReviewingSeller] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnSuccess, setReturnSuccess] = useState<Order | null>(null);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnError, setReturnError] = useState<string | null>(null);
   const storeName = seller.storeName || 'Our Store';
 
   const deliveryMethod = items[0]?.deliveryMethod ?? 'delivery';
@@ -65,7 +67,7 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
   const sellerAlreadyRated = existingReviews.get(seller.id);
 
   const returnEligibleItems = items
-    .filter((i) => i.status === 'delivered')
+    .filter((i) => i.status === 'delivered' && i.isReturnable)
     .map((item) => ({ item, maxQuantity: item.quantity - (returnedQuantities[item.productId] ?? 0) }))
     .filter(({ maxQuantity }) => maxQuantity > 0);
   const canRequestReturn = !!onSubmitReturn && returnEligibleItems.length > 0;
@@ -73,11 +75,19 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
   const findReturnForProduct = (productId: string) =>
     returnsForOrder.find((ro) => ro.items.some((i) => i.productId === productId));
 
-  const handleReturnSubmit = (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => {
+  const handleReturnSubmit = async (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => {
     if (!onSubmitReturn) return;
-    const created = onSubmitReturn(selections, reason, note);
-    setReturnSuccess(created);
-    setShowReturnForm(false);
+    setReturnSubmitting(true);
+    setReturnError(null);
+    try {
+      const created = await onSubmitReturn(selections, reason, note);
+      setReturnSuccess(created);
+      setShowReturnForm(false);
+    } catch (err: any) {
+      setReturnError(err?.response?.data?.detail ?? err?.message ?? 'Failed to submit return request');
+    } finally {
+      setReturnSubmitting(false);
+    }
   };
 
   return (
@@ -270,8 +280,18 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
             </div>
           )}
 
+          {returnError && (
+            <div style={{
+              padding: '10px 12px', borderRadius: '8px', marginBottom: '14px',
+              background: '#fef2f2', border: '1px solid #fecaca',
+              fontSize: '0.82rem', color: '#dc2626',
+            }}>
+              {returnError}
+            </div>
+          )}
+
           {showReturnForm ? (
-            <div style={{ marginBottom: '14px' }}>
+            <div style={{ marginBottom: '14px', opacity: returnSubmitting ? 0.6 : 1, pointerEvents: returnSubmitting ? 'none' : 'auto' }}>
               <ReturnRequestForm
                 items={returnEligibleItems}
                 onCancel={() => setShowReturnForm(false)}

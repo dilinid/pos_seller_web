@@ -13,7 +13,7 @@ export const DeliveryTracker: React.FC<DeliveryTrackerProps> = ({ status, storeP
   const shippedStage = current >= 3;
   const deliveredStage = current >= 4;
   const isCancelled = status === 'cancelled';
-  const isReturned = status === 'returned';
+  const isReturned = status === 'returned' || status === 'refunded';
 
   // Neither cancelled nor returned orders are "in transit" — the delivery
   // funnel this tracker visualizes doesn't apply to either.

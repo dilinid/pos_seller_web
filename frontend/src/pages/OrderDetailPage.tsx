@@ -18,6 +18,7 @@ const OrderDetailPage: React.FC = () => {
   const returnOrders = useMarketplaceStore((s) => s.returnOrders);
   const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
   const loadOrder = useMarketplaceStore((s) => s.loadOrder);
+  const loadReturnOrders = useMarketplaceStore((s) => s.loadReturnOrders);
   const submitReturnRequest = useMarketplaceStore((s) => s.submitReturnRequest);
   const profile = useStoreStore((s) => s.profile);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
@@ -37,12 +38,15 @@ const OrderDetailPage: React.FC = () => {
   );
 
   useEffect(() => {
-    // Return pseudo-orders are local-only (see stores/marketplace.store.ts) —
-    // the backend doesn't know about them, so don't fetch for their ids.
-    if (orderId && !isReturnOrderId(orderId)) {
+    if (!orderId) return;
+    if (isReturnOrderId(orderId)) {
+      // A return's own detail page load (e.g. a hard refresh) — the buyer's
+      // return list may not be populated yet, so fetch it directly.
+      loadReturnOrders();
+    } else {
       loadOrder(orderId);
     }
-  }, [orderId, loadOrder]);
+  }, [orderId, loadOrder, loadReturnOrders]);
 
   const returnedQuantities = useMemo(
     () => (order && !order.isReturn ? getReturnedQuantities(returnOrders, order.id) : {}),

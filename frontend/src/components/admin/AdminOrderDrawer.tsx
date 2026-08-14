@@ -22,16 +22,21 @@ interface AdminOrderDrawerProps {
   adminUserId?: string;
   adminUserName?: string;
   onSubmitBuyerReview?: (review: UserReview) => void;
+  /** Store-side action for a filed return (order.isReturn, status 'returned')
+   * — marks it refunded and restocks the returned items. */
+  onRefund?: (rtnOrdNo: string) => Promise<void>;
 }
 
 export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
   order, storeId, onClose, onUpdateItemStatus, onUpdateNote,
-  allReviews = [], reviewPeriods = [], adminUserId, adminUserName, onSubmitBuyerReview,
+  allReviews = [], reviewPeriods = [], adminUserId, adminUserName, onSubmitBuyerReview, onRefund,
 }) => {
   const items = order.items;
   const mainItem = items[0];
   const [notes, setNotes] = useState(mainItem?.adminNotes ?? '');
   const [noteSaved, setNoteSaved] = useState(false);
+  const [refunding, setRefunding] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,7 +71,21 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
     setTimeout(() => setNoteSaved(false), 2000);
   };
 
+  const handleRefund = async () => {
+    if (!onRefund) return;
+    setRefunding(true);
+    setRefundError(null);
+    try {
+      await onRefund(order.id);
+    } catch (err: any) {
+      setRefundError(err?.response?.data?.detail ?? err?.message ?? 'Failed to process refund');
+    } finally {
+      setRefunding(false);
+    }
+  };
+
   const orderLevelStatus = (): OrderStatus => {
+    if (items.every((i) => i.status === 'refunded')) return 'refunded';
     if (items.every((i) => i.status === 'returned')) return 'returned';
     if (items.every((i) => i.status === 'cancelled')) return 'cancelled';
     if (items.every((i) => i.status === 'delivered')) return 'delivered';
@@ -249,19 +268,50 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
             />
           </div>
 
-          <div className="pos-drawer-section">
-            <div className="pos-drawer-section-title">
-              {deliveryMethod === 'delivery' ? 'Update Status & Tracking' : 'Update Status'}
+          {order.isReturn ? (
+            <div className="pos-drawer-section">
+              <div className="pos-drawer-section-title">Refund</div>
+              {orderLevelStatus() === 'refunded' ? (
+                <div style={{
+                  padding: '10px 14px', background: '#dcfce7', borderRadius: '10px',
+                  fontSize: '0.82rem', color: '#16a34a', fontWeight: 600, textAlign: 'center',
+                }}>
+                  Refunded
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleRefund}
+                    disabled={refunding || !onRefund}
+                    className="btn btn-primary"
+                    style={{
+                      width: '100%', padding: '10px 16px', fontSize: '0.82rem', fontWeight: 600,
+                      opacity: refunding || !onRefund ? 0.6 : 1, cursor: refunding || !onRefund ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {refunding ? 'Processing…' : 'Process Refund'}
+                  </button>
+                  {refundError && (
+                    <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#dc2626' }}>{refundError}</div>
+                  )}
+                </>
+              )}
             </div>
-            <AdminOrderStatusActions
-              status={orderLevelStatus()}
-              deliveryMethod={deliveryMethod}
-              trackingCarrier={mainItem?.trackingCarrier}
-              trackingNumber={mainItem?.trackingNumber}
-              trackingPhone={mainItem?.deliveryContactPhone}
-              onUpdateStatus={handleStatusUpdate}
-            />
-          </div>
+          ) : (
+            <div className="pos-drawer-section">
+              <div className="pos-drawer-section-title">
+                {deliveryMethod === 'delivery' ? 'Update Status & Tracking' : 'Update Status'}
+              </div>
+              <AdminOrderStatusActions
+                status={orderLevelStatus()}
+                deliveryMethod={deliveryMethod}
+                trackingCarrier={mainItem?.trackingCarrier}
+                trackingNumber={mainItem?.trackingNumber}
+                trackingPhone={mainItem?.deliveryContactPhone}
+                onUpdateStatus={handleStatusUpdate}
+              />
+            </div>
+          )}
 
           {(orderLevelStatus() === 'delivered') && adminUserId && onSubmitBuyerReview && (
             <div className="pos-drawer-section">
