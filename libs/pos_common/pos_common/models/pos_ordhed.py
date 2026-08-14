@@ -1,19 +1,10 @@
-"""Owned by: Ordering service. Other services (Picking, Packing) may only READ
-this model — mutate order status/pick quantities via Ordering's /internal/*
-API (see services/ordering/app/routes/internal.py), never by writing this
-table directly, even though the shared physical DB makes that technically
-possible."""
-
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum as PyEnum
 from typing import Optional
 
 from sqlalchemy import DECIMAL
-from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
-
-from pos_common.models.pos_order_type import PosOrderType  # noqa: F401
 
 
 class OrderStatus(str, PyEnum):
@@ -24,6 +15,7 @@ class OrderStatus(str, PyEnum):
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
     RETURNED = "returned"
+    REFUNDED = "refunded"
 
 
 class PosOrdHed(SQLModel, table=True):
@@ -33,13 +25,7 @@ class PosOrdHed(SQLModel, table=True):
     type: str = Field(default="POS", max_length=20, foreign_key="pos_order_type.type_code")
     is_invoiced: bool = Field(default=False)
     InvNo: Optional[str] = Field(default=None, max_length=7)
-    # The pos_ordhed.status DB column stores the enum members' lowercase *values*
-    # (e.g. "pending"), not their uppercase names — values_callable makes SQLAlchemy
-    # read/write against OrderStatus.value instead of its default of OrderStatus.name.
-    status: OrderStatus = Field(
-        default=OrderStatus.PENDING,
-        sa_type=SAEnum(OrderStatus, values_callable=lambda enum_cls: [member.value for member in enum_cls]),
-    )
+    status: OrderStatus = Field(default=OrderStatus.PENDING)
     created_at: Optional[datetime] = Field(default=None)
     created_by_id: Optional[str] = Field(default=None, max_length=32)
     md_at: Optional[datetime] = Field(default=None)

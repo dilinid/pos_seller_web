@@ -34,3 +34,4 @@ class PosItemLots(SQLModel, table=True):
     itemlots_casesize: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
     itemlots_reserve: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
     itemlots_pick: Optional[Decimal] = Field(default=None, sa_type=DECIMAL(18, 2))
+    is_returnable: bool = Field(default=True, nullable=False)

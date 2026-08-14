@@ -21,3 +21,4 @@ class PosSetup(SQLModel, table=True):
     setup_vatacc: Optional[str] = Field(default=None, max_length=20)
     setup_vatexpacc: Optional[str] = Field(default=None, max_length=20)
     setup_pointscheme: Optional[int] = Field(default=None)
+    setup_rtndays: Optional[int] = Field(default=None)
