@@ -599,6 +599,30 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Renders a subtree only when printing (e.g. a receipt built for print, kept
+ * out of the normal page flow otherwise) — independent of DOM nesting, unlike
+ * the admin-page .no-print pattern above which prints "everything but X". */
+.print-only {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .print-only,
+  .print-only * {
+    visibility: visible !important;
+  }
+  .print-only {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
+
 /* Stats grid */
 .admin-stats-grid {
   display: grid;

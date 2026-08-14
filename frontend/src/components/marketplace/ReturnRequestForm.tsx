@@ -15,9 +15,13 @@ interface ReturnRequestFormProps {
   items: ReturnableItem[];
   onCancel: () => void;
   onSubmit: (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => void;
+  /** True once this request has been successfully submitted — freezes every
+   * field plus Cancel/Submit, and is the only state in which Print is enabled. */
+  submitted?: boolean;
+  onPrint?: () => void;
 }
 
-export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onCancel, onSubmit }) => {
+export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onCancel, onSubmit, submitted = false, onPrint }) => {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>(
     Object.fromEntries(items.map(({ item, maxQuantity }) => [item.productId, maxQuantity]))
@@ -26,7 +30,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
   const [note, setNote] = useState('');
 
   const selectedItems = items.filter(({ item }) => selected[item.productId]);
-  const canSubmit = selectedItems.length > 0 && reason.length > 0;
+  const canSubmit = !submitted && selectedItems.length > 0 && reason.length > 0;
 
   const toggleItem = (productId: string) => {
     setSelected((prev) => ({ ...prev, [productId]: !prev[productId] }));
@@ -72,6 +76,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
                 type="checkbox"
                 checked={isChecked}
                 onChange={() => toggleItem(item.productId)}
+                disabled={submitted}
                 style={{ accentColor: '#d97706', flexShrink: 0 }}
               />
               <ProductImage image={item.productImage} alt={item.productName} size="1.1rem" />
@@ -90,6 +95,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
                   max={maxQuantity}
                   value={quantities[item.productId] ?? maxQuantity}
                   onChange={(e) => handleQtyChange(item.productId, Number(e.target.value), maxQuantity)}
+                  disabled={submitted}
                   className="form-input"
                   style={{ width: '60px', padding: '5px 6px', fontSize: '0.8rem', flexShrink: 0 }}
                 />
@@ -106,6 +112,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value as ReturnReason)}
+          disabled={submitted}
           className="form-input"
           style={{ fontSize: '0.82rem', padding: '7px 10px' }}
         >
@@ -123,6 +130,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          disabled={submitted}
           rows={2}
           placeholder="Tell us more about the issue…"
           className="form-input"
@@ -134,10 +142,20 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
         <button
           type="button"
           onClick={onCancel}
+          disabled={submitted}
           className="btn btn-secondary"
-          style={{ padding: '7px 16px', fontSize: '0.8rem' }}
+          style={{ padding: '7px 16px', fontSize: '0.8rem', opacity: submitted ? 0.5 : 1, cursor: submitted ? 'not-allowed' : 'pointer' }}
         >
           Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onPrint}
+          disabled={!submitted}
+          className="btn btn-secondary"
+          style={{ padding: '7px 16px', fontSize: '0.8rem', opacity: submitted ? 1 : 0.5, cursor: submitted ? 'pointer' : 'not-allowed' }}
+        >
+          Print
         </button>
         <button
           type="button"
@@ -146,7 +164,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
           className="btn btn-primary"
           style={{ padding: '7px 16px', fontSize: '0.8rem', opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
         >
-          Submit Return Request
+          {submitted ? 'Submitted' : 'Submit Return Request'}
         </button>
       </div>
     </div>

@@ -192,6 +192,7 @@ const OrderDetailPage: React.FC = () => {
                   seller={profile}
                   items={order.items}
                   orderId={order.id}
+                  orderCreatedAt={order.createdAt}
                   existingReviews={reviewMap}
                   onReviewSubmit={handleReviewSubmit}
                   reviewPeriod={reviewPeriods.find((rp) => rp.orderId === order.id && rp.sellerId === profile.id)}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Truck, MapPin, Star, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import type { Order, OrderItem, ReturnReason, UserReview, ReviewPeriod } from '../../types/marketplace.type';
@@ -12,6 +13,7 @@ import { OrderProgressStepper } from './OrderProgressStepper';
 import { DeliveryTracker } from './DeliveryTracker';
 import { ReviewForm } from './ReviewForm';
 import { ReturnRequestForm } from './ReturnRequestForm';
+import { ReturnReceipt } from './ReturnReceipt';
 import { MutualReviewStatus } from './MutualReviewStatus';
 import { RETURN_REASON_META } from '../../data/order-status';
 import { formatCurrency } from '../../utils/currency';
@@ -20,6 +22,9 @@ interface OrderStoreSectionProps {
   seller: StoreProfile;
   items: OrderItem[];
   orderId: string;
+  /** The original order's placement date — used only for the return receipt's
+   * "Ordered Date" line. Omit for order views that don't support returns. */
+  orderCreatedAt?: string;
   existingReviews: Map<string, UserReview>;
   onReviewSubmit: (review: UserReview) => void;
   reviewPeriod?: ReviewPeriod;
@@ -38,7 +43,7 @@ interface OrderStoreSectionProps {
 }
 
 export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
-  seller, items, orderId, existingReviews, onReviewSubmit,
+  seller, items, orderId, orderCreatedAt, existingReviews, onReviewSubmit,
   reviewPeriod, userId, userName, onSellerReviewSubmit, onStartReviewPeriod,
   returnedQuantities = {}, returnsForOrder = [], onSubmitReturn,
 }) => {
@@ -49,6 +54,7 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
   const [returnSuccess, setReturnSuccess] = useState<Order | null>(null);
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
+  const [printedAt, setPrintedAt] = useState<Date | null>(null);
   const storeName = seller.storeName || 'Our Store';
 
   const deliveryMethod = items[0]?.deliveryMethod ?? 'delivery';
@@ -82,12 +88,21 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
     try {
       const created = await onSubmitReturn(selections, reason, note);
       setReturnSuccess(created);
-      setShowReturnForm(false);
+      // Keep the form open (now frozen — see ReturnRequestForm's `submitted`
+      // prop) rather than hiding it, so Print stays reachable in place.
     } catch (err: any) {
       setReturnError(err?.response?.data?.detail ?? err?.message ?? 'Failed to submit return request');
     } finally {
       setReturnSubmitting(false);
     }
+  };
+
+  const handlePrintReturn = () => {
+    // flushSync forces the printedAt update (and the portaled receipt it
+    // reveals) to actually commit to the DOM before print() reads the page —
+    // an ordinary setState here is async and could otherwise race it.
+    flushSync(() => setPrintedAt(new Date()));
+    window.print();
   };
 
   return (
@@ -296,6 +311,8 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
                 items={returnEligibleItems}
                 onCancel={() => setShowReturnForm(false)}
                 onSubmit={handleReturnSubmit}
+                submitted={!!returnSuccess}
+                onPrint={handlePrintReturn}
               />
             </div>
           ) : canRequestReturn && !returnSuccess && (
@@ -407,6 +424,25 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
             <span>{formatCurrency(subtotal + totalDeliveryFee)}</span>
           </div>
         </div>
+      )}
+
+      {returnSuccess && printedAt && createPortal(
+        // Portaled straight to <body> — this component's own wrapper above is
+        // `overflow: hidden`, which would otherwise clip an absolutely
+        // positioned .print-only block (see index.css) during print.
+        <div className="print-only">
+          <ReturnReceipt
+            returnOrderId={returnSuccess.id}
+            originalOrderId={orderId}
+            storeName={storeName}
+            storeAddress={seller.pickupAddress}
+            orderedAt={orderCreatedAt ?? ''}
+            printedAt={printedAt}
+            items={returnSuccess.items}
+            totalAmount={returnSuccess.grandTotal}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );
