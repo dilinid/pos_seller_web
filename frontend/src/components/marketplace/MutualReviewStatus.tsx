@@ -82,7 +82,7 @@ export const MutualReviewStatus: React.FC<MutualReviewStatusProps> = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: sellerDone ? 'var(--accent)' : 'var(--text-muted)', fontWeight: sellerDone ? 600 : 400 }}>
           {sellerDone ? <Check size={13} /> : <Clock size={13} />}
-          <span>{sellerName || 'Seller'}: {sellerDone ? 'Reviewed' : 'Pending review'}</span>
+          <span>{sellerName || 'Store'}: {sellerDone ? 'Reviewed' : 'Pending review'}</span>
         </div>
       </div>
     </div>

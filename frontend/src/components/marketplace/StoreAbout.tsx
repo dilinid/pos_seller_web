@@ -1,8 +1,8 @@
 import { Truck, MapPin, Package } from 'lucide-react';
-import type { SellerProfile } from '../../types/seller.type';
+import type { StoreProfile } from '../../types/store.type';
 
 interface StoreAboutProps {
-  seller: SellerProfile;
+  seller: StoreProfile;
 }
 
 export const StoreAbout: React.FC<StoreAboutProps> = ({ seller }) => {

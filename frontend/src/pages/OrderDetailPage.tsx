@@ -3,9 +3,9 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, MapPin, CreditCard, Banknote, RotateCcw } from 'lucide-react';
 import { useMarketplaceStore, isReturnOrderId, getReturnedQuantities, getReturnsForOrder } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
-import { useSellerStore } from '../stores/seller.store';
+import { useStoreStore } from '../stores/store.store';
 import { PaymentStatusBadge } from '../components/marketplace/OrderStatusBadge';
-import { OrderSellerGroup } from '../components/marketplace/OrderSellerGroup';
+import { OrderStoreSection } from '../components/marketplace/OrderStoreSection';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { formatCurrency } from '../utils/currency';
@@ -19,7 +19,7 @@ const OrderDetailPage: React.FC = () => {
   const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
   const loadOrder = useMarketplaceStore((s) => s.loadOrder);
   const submitReturnRequest = useMarketplaceStore((s) => s.submitReturnRequest);
-  const profile = useSellerStore((s) => s.profile);
+  const profile = useStoreStore((s) => s.profile);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
   const reviewPeriods = useMarketplaceStore((s) => s.reviewPeriods);
   const submitReview = useMarketplaceStore((s) => s.submitReview);
@@ -82,7 +82,7 @@ const OrderDetailPage: React.FC = () => {
     submitReview(review);
   };
 
-  const handleSubmitReturn: NonNullable<React.ComponentProps<typeof OrderSellerGroup>['onSubmitReturn']> = (selections, reason, note) => {
+  const handleSubmitReturn: NonNullable<React.ComponentProps<typeof OrderStoreSection>['onSubmitReturn']> = (selections, reason, note) => {
     if (!order) throw new Error('Cannot submit a return before the order has loaded');
     return submitReturnRequest(order, selections, reason, note);
   };
@@ -184,7 +184,7 @@ const OrderDetailPage: React.FC = () => {
 
             <div className="od-grid">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <OrderSellerGroup
+                <OrderStoreSection
                   seller={profile}
                   items={order.items}
                   orderId={order.id}

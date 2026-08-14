@@ -125,9 +125,7 @@ export interface OrderRaw {
   estimatedDelivery: string;
 }
 
-/** Fills in the single-tenant seller identity (see useSellerStore's `id: 'store'`)
- * that the backend doesn't know about — this app has exactly one seller. */
-export function mapOrderRawToOrder(raw: OrderRaw, sellerId: string, sellerName: string): Order {
+export function mapOrderRawToOrder(raw: OrderRaw): Order {
   const items: OrderItem[] = raw.items.map((item) => ({
     productId: item.productId,
     productName: item.productName,
@@ -136,8 +134,6 @@ export function mapOrderRawToOrder(raw: OrderRaw, sellerId: string, sellerName: 
     mrp: item.mrp ?? undefined,
     quantity: item.quantity,
     unit: item.unit,
-    sellerId,
-    sellerName,
     deliveryMethod: item.deliveryMethod,
     deliveryFee: item.deliveryFee,
     status: item.status,
@@ -166,9 +162,9 @@ export async function fetchMyOrders(): Promise<OrderRaw[]> {
   return response.data;
 }
 
-/** Every online order for the store, across all customers — the seller-side
+/** Every online order for the store, across all customers — the store admin's
  * counterpart to fetchMyOrders. */
-export async function fetchSellerOrders(): Promise<OrderRaw[]> {
+export async function fetchAdminOrders(): Promise<OrderRaw[]> {
   const response = await api.get<OrderRaw[]>('/api/marketplace/seller/orders');
   return response.data;
 }

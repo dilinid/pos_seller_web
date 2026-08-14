@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus, ReturnReason, SellerPayoutStatus } from '../types/marketplace.type';
+import type { OrderStatus, PaymentStatus, ReturnReason, PayoutStatus } from '../types/marketplace.type';
 
 interface StatusMeta {
   label: string;
@@ -26,20 +26,18 @@ export const PAYMENT_STATUS_META: Record<PaymentStatus, StatusMeta> = {
   paid: { label: 'Paid', color: '#10b981', bg: '#ecfdf5' },
 };
 
-export const PAYOUT_STATUS_META: Record<SellerPayoutStatus, StatusMeta> = {
+export const PAYOUT_STATUS_META: Record<PayoutStatus, StatusMeta> = {
   pending: { label: 'Pending', color: '#d97706', bg: '#fef3c7' },
   processing: { label: 'Processing', color: '#2563eb', bg: '#dbeafe' },
   paid: { label: 'Paid', color: '#16a34a', bg: '#dcfce7' },
   on_hold: { label: 'On Hold', color: '#dc2626', bg: '#fef2f2' },
 };
 
-export const ORDER_TIMELINE_STEPS = [
-  { key: 'pending', label: 'Placed' },
-  { key: 'picking', label: 'Picking' },
-  { key: 'packing', label: 'Packing' },
-  { key: 'shipped', label: 'Shipped' },
-  { key: 'delivered', label: 'Delivered' },
-] as const;
+// The statuses an order moves through on the happy path, in order. cancelled/
+// returned are terminal off-path statuses and are rendered as separate blocks
+// by their consumers (see AdminOrderTimeline's isCancelled/isReturned) rather
+// than appearing as a step here.
+export const ORDER_TIMELINE_STEPS: OrderStatus[] = ['pending', 'picking', 'packing', 'shipped', 'delivered'];
 
 export function getTimelineStep(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
@@ -72,8 +70,8 @@ export interface StatusTransition {
   navigateTo?: string;
 }
 
-export const SELLER_DELIVERY_TRANSITIONS: StatusTransition[] = [
-  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6', navigateTo: '/seller/pickup-list' },
+export const ADMIN_DELIVERY_TRANSITIONS: StatusTransition[] = [
+  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6', navigateTo: '/admin/pickup-list' },
   { from: 'pending', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
   { from: 'picking', to: 'packing', label: 'Start Packing', color: '#8b5cf6' },
   { from: 'picking', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
@@ -82,8 +80,8 @@ export const SELLER_DELIVERY_TRANSITIONS: StatusTransition[] = [
   { from: 'shipped', to: 'delivered', label: 'Mark as Delivered', color: '#10b981' },
 ];
 
-export const SELLER_PICKUP_TRANSITIONS: StatusTransition[] = [
-  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6', navigateTo: '/seller/pickup-list' },
+export const ADMIN_PICKUP_TRANSITIONS: StatusTransition[] = [
+  { from: 'pending', to: 'picking', label: 'Start Picking', color: '#3b82f6', navigateTo: '/admin/pickup-list' },
   { from: 'pending', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
   { from: 'picking', to: 'packing', label: 'Start Packing', color: '#8b5cf6' },
   { from: 'picking', to: 'cancelled', label: 'Cancel Order', icon: '✕', color: '#ef4444' },
@@ -97,7 +95,18 @@ export const PICKUP_STATUS_LABELS: Partial<Record<OrderStatus, string>> = {
   delivered: 'Picked Up',
 };
 
+/** The single place that decides what word to show for a status — every UI
+ * surface (badges, timelines, steppers) should call this rather than keeping
+ * its own label copy, so a status can't read differently in different parts
+ * of the same page (e.g. "Shipped" in one place, "In Transit" in another). */
+export function getStatusLabel(status: OrderStatus, deliveryMethod?: 'delivery' | 'pickup'): string {
+  if (deliveryMethod === 'pickup' && PICKUP_STATUS_LABELS[status]) {
+    return PICKUP_STATUS_LABELS[status]!;
+  }
+  return (ORDER_STATUS_META[status] ?? ORDER_STATUS_META.pending).label;
+}
+
 export function getTransitions(status: OrderStatus, method: 'delivery' | 'pickup'): StatusTransition[] {
-  const map = method === 'pickup' ? SELLER_PICKUP_TRANSITIONS : SELLER_DELIVERY_TRANSITIONS;
+  const map = method === 'pickup' ? ADMIN_PICKUP_TRANSITIONS : ADMIN_DELIVERY_TRANSITIONS;
   return map.filter((t) => t.from === status);
 }

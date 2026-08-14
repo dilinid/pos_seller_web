@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuthStore } from "../stores/auth.store";
 import { useMarketplaceStore } from "../stores/marketplace.store";
-import { useSellerStore } from "../stores/seller.store";
+import { useStoreStore } from "../stores/store.store";
 import { useCODStore } from "../stores/cod.store";
 import { useDashboardStore } from "../stores/dashboard.store";
 import { useNavigate } from "react-router-dom";
@@ -17,7 +17,7 @@ import { buildFallbackProfile, mapProfileResponse } from "../utils/profile.utils
 // token) can't leak into the next session either.
 function resetAccountScopedStores() {
   useMarketplaceStore.getState().resetAccountState();
-  useSellerStore.getState().resetProfile();
+  useStoreStore.getState().resetProfile();
   useCODStore.getState().resetCOD();
   useDashboardStore.getState().clearState();
 }

@@ -10,21 +10,20 @@ import OrderDetailPage from './pages/OrderDetailPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
-import SellerDashboard from './pages/SellerDashboard';
-import SellerSettings from './pages/SellerSettings';
-import SellerProducts from './pages/SellerProducts';
-import SellerStock from './pages/SellerStock';
-import SellerOrders from './pages/SellerOrders';
-import SellerPickupList from './pages/SellerPickupList';
-import SellerPackingList from './pages/SellerPackingList';
-import SellerPromotions from './pages/SellerPromotions';
-import SellerPayments from './pages/SellerPayments';
-import SellerAddProduct from './pages/SellerAddProduct';
-import SellerStorefront from './pages/SellerStorefront';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminSettings from './pages/AdminSettings';
+import AdminProducts from './pages/AdminProducts';
+import AdminStock from './pages/AdminStock';
+import AdminOrders from './pages/AdminOrders';
+import AdminPickupList from './pages/AdminPickupList';
+import AdminPackingList from './pages/AdminPackingList';
+import AdminPromotions from './pages/AdminPromotions';
+import AdminPayments from './pages/AdminPayments';
+import AdminAddProduct from './pages/AdminAddProduct';
+import Storefront from './pages/Storefront';
 import POSSync from './pages/POSSync';
-import { SellerLayout } from './components/seller/SellerLayout';
-import { useAuthStore } from './stores/auth.store';
-import { useSellerStore } from './stores/seller.store';
+import { AdminLayout } from './components/admin/AdminLayout';
+import { useAuthStore, isAdmin } from './stores/auth.store';
 import { AuthInitializer } from './components/AuthInitializer';
 import { MarketplaceInitializer } from './components/MarketplaceInitializer';
 
@@ -40,13 +39,12 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return isAuthenticated ? <Navigate to="/" replace /> : <>{children}</>;
 };
 
-// Seller-only route guard — user must be authenticated AND an approved seller
-const SellerOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Admin-only route guard — user must be authenticated AND hold the store admin role
+const AdminOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const user = useAuthStore((s) => s.user);
   const userRole = useAuthStore((s) => s.userSession?.userRole);
-  const isSeller = useSellerStore((s) => s.isSeller(userRole));
   if (!user) return <Navigate to="/login" replace />;
-  if (!isSeller) return <Navigate to="/" replace />;
+  if (!isAdmin(userRole)) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -60,8 +58,8 @@ const AppContent: React.FC = () => {
         {/* Product Detail Page */}
         <Route path="/product/:productId" element={<ProductDetail />} />
 
-        {/* Seller Storefront */}
-        <Route path="/store" element={<SellerStorefront />} />
+        {/* Store Storefront */}
+        <Route path="/store" element={<Storefront />} />
 
         {/* Checkout & Payment Pages */}
         <Route
@@ -118,38 +116,38 @@ const AppContent: React.FC = () => {
           }
         />
 
-        <Route 
-          path="/profile" 
+        <Route
+          path="/profile"
           element={
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Seller Portal Routes */}
-        <Route path="/seller/login" element={<Navigate to="/" replace />} />
+        {/* Store Admin Portal Routes */}
+        <Route path="/admin/login" element={<Navigate to="/" replace />} />
         <Route
-          path="/seller"
+          path="/admin"
           element={
-            <SellerOnlyRoute>
-              <SellerLayout />
-            </SellerOnlyRoute>
+            <AdminOnlyRoute>
+              <AdminLayout />
+            </AdminOnlyRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<SellerDashboard />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="pos-sync" element={<POSSync />} />
-          <Route path="products" element={<SellerProducts />} />
-          <Route path="stock" element={<SellerStock />} />
-          <Route path="products/add" element={<SellerAddProduct />} />
-          <Route path="products/edit/:draftId" element={<SellerAddProduct />} />
-          <Route path="orders" element={<SellerOrders />} />
-          <Route path="pickup-list" element={<SellerPickupList />} />
-          <Route path="packing-list" element={<SellerPackingList />} />
-          <Route path="promotions" element={<SellerPromotions />} />
-          <Route path="payments" element={<SellerPayments />} />
-          <Route path="settings" element={<SellerSettings />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="stock" element={<AdminStock />} />
+          <Route path="products/add" element={<AdminAddProduct />} />
+          <Route path="products/edit/:draftId" element={<AdminAddProduct />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="pickup-list" element={<AdminPickupList />} />
+          <Route path="packing-list" element={<AdminPackingList />} />
+          <Route path="promotions" element={<AdminPromotions />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
         {/* Catch-all redirects to home landing */}

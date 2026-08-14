@@ -18,7 +18,7 @@ export const useAuthStore = create<AuthState>()(
         (set) => ({
             userSession: null,
             user: null,
-            
+
             setUserSession: (userSession: UserSession | null) => set({ userSession}),
             setUser: (user: UserProfile) => set({ user }),
             clearState: () => set({ userSession: null, user: null }),
@@ -33,3 +33,9 @@ export const useAuthStore = create<AuthState>()(
         }
     )
 );
+
+/** This app has a single store admin account — "seller" and "admin" are the
+ * same person here. Gates access to the /admin/* back-office portal. */
+export function isAdmin(userRole?: string | null): boolean {
+    return userRole === 'ADMIN';
+}

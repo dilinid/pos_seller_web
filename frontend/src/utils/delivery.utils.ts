@@ -1,4 +1,4 @@
-import type { SellerProfile, FeeBracket } from '../types/seller.type';
+import type { StoreProfile, FeeBracket } from '../types/store.type';
 
 function matchBracket(brackets: FeeBracket[], value: number | null): number {
   if (value == null) return 0;
@@ -9,7 +9,7 @@ function matchBracket(brackets: FeeBracket[], value: number | null): number {
 }
 
 export function calculateDeliveryFee(
-  config: Pick<SellerProfile, 'districtFees' | 'freeDeliveryMin' | 'weightFeeBrackets' | 'volumeFeeBrackets' | 'quantityFeeBrackets'>,
+  config: Pick<StoreProfile, 'districtFees' | 'freeDeliveryMin' | 'weightFeeBrackets' | 'volumeFeeBrackets' | 'quantityFeeBrackets'>,
   districtId: string | null,
   items: { productId: string; quantity: number; weight: number | null; volume: number | null }[],
   subtotal: number

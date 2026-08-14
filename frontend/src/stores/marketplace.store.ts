@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, OrderItem, UserReview, ReviewPeriod, OrderStatus, PaymentStatus, ReturnReason } from '../types/marketplace.type';
-import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchSellerOrders, fetchOrderById, fetchStoreLocations, mapOrderRawToOrder, type StoreLocation } from '../apis/marketplace.api';
-import { useSellerStore } from './seller.store';
+import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchAdminOrders, fetchOrderById, fetchStoreLocations, mapOrderRawToOrder, type StoreLocation } from '../apis/marketplace.api';
+import { useStoreStore } from './store.store';
 import { ORDER_STATUS_VALUES } from '../data/order-status';
 
 /** Inserts/updates a single fetched order without disturbing the rest of the
@@ -99,7 +99,7 @@ interface MarketplaceStoreState {
   ordersLoading: boolean;
   ordersError: string | null;
   /** Client-only return requests (see Order.isReturn) — not part of `orders`
-   * because loadOrders/loadSellerOrders replace that array wholesale from the
+   * because loadOrders/loadAdminOrders replace that array wholesale from the
    * backend on every fetch, which would wipe these out. Kept as its own
    * persisted list instead, and merged into buyer/seller order views at read time. */
   returnOrders: Order[];
@@ -107,7 +107,7 @@ interface MarketplaceStoreState {
   reviewPeriods: ReviewPeriod[];
   loadOrders: () => Promise<void>;
   loadOrder: (orderId: string) => Promise<void>;
-  loadSellerOrders: () => Promise<void>;
+  loadAdminOrders: () => Promise<void>;
   addOrder: (order: Order) => void;
   /** Creates a return pseudo-order for the selected items/quantities and
    * stores it in `returnOrders`. UI-only for now — would become a real
@@ -121,9 +121,9 @@ interface MarketplaceStoreState {
   ) => Order;
   updateOrderItemStatus: (orderId: string, productId: string, status: OrderStatus) => void;
   updateOrderPaymentStatus: (orderId: string, status: PaymentStatus) => void;
-  sellerUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string; contactPhone?: string }) => void;
-  sellerUpdateTracking: (orderId: string, productId: string, carrier: string, trackingNumber: string, contactPhone?: string) => void;
-  sellerUpdateNote: (orderId: string, productId: string, note: string) => void;
+  adminUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string; contactPhone?: string }) => void;
+  adminUpdateTracking: (orderId: string, productId: string, carrier: string, trackingNumber: string, contactPhone?: string) => void;
+  adminUpdateNote: (orderId: string, productId: string, note: string) => void;
   submitReview: (review: UserReview) => void;
   startReviewPeriod: (orderId: string, sellerId: string, buyerId: string) => void;
   closeReviewPeriod: (orderId: string, sellerId: string) => void;
@@ -226,8 +226,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         set({ ordersLoading: true, ordersError: null });
         try {
           const raw = await fetchMyOrders();
-          const { id: sellerId, storeName } = useSellerStore.getState().profile;
-          const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
+          const fetched = raw.map(mapOrderRawToOrder);
           // `fetched` is the complete, authoritative list for the signed-in buyer —
           // replace rather than merge, so a previous account's (or a stale) orders
           // can't linger in state past this fetch.
@@ -242,8 +241,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         set({ ordersLoading: true, ordersError: null });
         try {
           const raw = await fetchOrderById(orderId);
-          const { id: sellerId, storeName } = useSellerStore.getState().profile;
-          const order = mapOrderRawToOrder(raw, sellerId, storeName || 'Our Store');
+          const order = mapOrderRawToOrder(raw);
           set({ orders: upsertOrder(get().orders, order), ordersLoading: false });
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load order';
@@ -251,12 +249,11 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         }
       },
 
-      loadSellerOrders: async () => {
+      loadAdminOrders: async () => {
         set({ ordersLoading: true, ordersError: null });
         try {
-          const raw = await fetchSellerOrders();
-          const { id: sellerId, storeName } = useSellerStore.getState().profile;
-          const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
+          const raw = await fetchAdminOrders();
+          const fetched = raw.map(mapOrderRawToOrder);
           // Complete, authoritative list of the store's orders — same reasoning as loadOrders.
           set({ orders: fetched, ordersLoading: false });
         } catch (err: any) {
@@ -380,7 +377,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ),
         });
       },
-      sellerUpdateItemStatus: (orderId, productId, status, tracking) => {
+      adminUpdateItemStatus: (orderId, productId, status, tracking) => {
         set({
           orders: get().orders.map((o) =>
             o.id === orderId
@@ -403,7 +400,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ),
         });
       },
-      sellerUpdateTracking: (orderId, productId, carrier, trackingNumber, contactPhone) => {
+      adminUpdateTracking: (orderId, productId, carrier, trackingNumber, contactPhone) => {
         set({
           orders: get().orders.map((o) =>
             o.id === orderId
@@ -420,7 +417,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ),
         });
       },
-      sellerUpdateNote: (orderId, productId, note) => {
+      adminUpdateNote: (orderId, productId, note) => {
         set({
           orders: get().orders.map((o) =>
             o.id === orderId
@@ -428,7 +425,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
                   ...o,
                   updatedAt: new Date().toISOString(),
                   items: o.items.map((item) =>
-                    item.productId === productId ? { ...item, sellerNotes: note } : item
+                    item.productId === productId ? { ...item, adminNotes: note } : item
                   ),
                 }
               : o
@@ -470,12 +467,11 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         }
 
         if (review.targetType === 'product') {
-          const orderItem = state.orders
-            .flatMap((o) => o.items)
-            .find((i) => i.productId === review.targetId && i.sellerId === state.orders.flatMap(o => o.items).find(i => i.productId === review.targetId)?.sellerId);
+          const orderItem = state.orders.flatMap((o) => o.items).find((i) => i.productId === review.targetId);
           if (orderItem) {
+            const storeId = useStoreStore.getState().profile.id;
             updates.reviewPeriods = (updates.reviewPeriods || state.reviewPeriods).map((rp) =>
-              rp.orderId === review.orderId && rp.sellerId === orderItem.sellerId
+              rp.orderId === review.orderId && rp.sellerId === storeId
                 ? { ...rp, buyerReviewedProduct: true } : rp
             );
           }
@@ -504,7 +500,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
 
         if (!period.buyerReviewedProduct) {
           const order = get().orders.find((o) => o.id === orderId);
-          const items = order?.items.filter((i) => i.sellerId === sellerId) ?? [];
+          const items = order?.items ?? [];
           items.forEach((item) => {
             autoReviews.push({
               id: `auto-${orderId}-${sellerId}-${item.productId}`,
@@ -636,7 +632,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               ...item,
               trackingNumber: (item as any).trackingNumber,
               trackingCarrier: (item as any).trackingCarrier,
-              sellerNotes: (item as any).sellerNotes,
+              adminNotes: (item as any).adminNotes,
             })),
           }));
         // Same status-sanity guard as migratedOrders — a returnOrders entry with

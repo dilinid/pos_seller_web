@@ -57,7 +57,7 @@ export type OrderStatus = 'pending' | 'picking' | 'packing' | 'shipped' | 'deliv
 
 export type PaymentStatus = 'pending' | 'paid';
 
-export type SellerPayoutStatus = 'pending' | 'processing' | 'paid' | 'on_hold';
+export type PayoutStatus = 'pending' | 'processing' | 'paid' | 'on_hold';
 
 // Preset reasons a buyer can pick when requesting a return.
 export type ReturnReason = 'defective' | 'wrong_item' | 'no_longer_needed' | 'wrong_size' | 'other';
@@ -70,20 +70,18 @@ export interface OrderItem {
   mrp?: number;
   quantity: number;
   unit: string;
-  sellerId: string;
-  sellerName: string;
   deliveryMethod: 'delivery' | 'pickup';
   deliveryFee: number;
   status: OrderStatus;
   trackingNumber?: string;
   trackingCarrier?: string;
   deliveryContactPhone?: string;
-  sellerNotes?: string;
-  sellerPayoutStatus?: SellerPayoutStatus;
-  sellerPayoutDate?: string;
-  sellerPayoutMethod?: string;
-  sellerPayoutRef?: string;
-  sellerPayoutNote?: string;
+  adminNotes?: string;
+  payoutStatus?: PayoutStatus;
+  payoutDate?: string;
+  payoutMethod?: string;
+  payoutRef?: string;
+  payoutNote?: string;
   /** Set only on items belonging to a return pseudo-order (Order.isReturn). */
   returnReason?: ReturnReason;
   returnReasonNote?: string;

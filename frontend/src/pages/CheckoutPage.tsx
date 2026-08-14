@@ -2,20 +2,20 @@ import { useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, ShoppingBag } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
-import { useSellerStore } from '../stores/seller.store';
+import { useStoreStore } from '../stores/store.store';
 import { calculateDeliveryFee } from '../utils/delivery.utils';
 import { formatCurrency } from '../utils/currency';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { CheckoutDeliveryAddress } from '../components/marketplace/CheckoutDeliveryAddress';
-import { CheckoutSellerGroup } from '../components/marketplace/CheckoutSellerGroup';
+import { CheckoutStoreSection } from '../components/marketplace/CheckoutStoreSection';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
 
   const cart = useMarketplaceStore((s) => s.cart);
   const directBuyItem = useMarketplaceStore((s) => s.directBuyItem);
-  const profile = useSellerStore((s) => s.profile);
+  const profile = useStoreStore((s) => s.profile);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const deliveryDistrict = useMarketplaceStore((s) => s.deliveryDistrict);
@@ -76,7 +76,7 @@ const CheckoutPage: React.FC = () => {
                 <CheckoutDeliveryAddress />
 
                 {checkedItems.length > 0 && (
-                  <CheckoutSellerGroup
+                  <CheckoutStoreSection
                     seller={profile}
                     items={checkedItems}
                     deliveryMethod={method}
@@ -92,7 +92,7 @@ const CheckoutPage: React.FC = () => {
                   </div>
                   <textarea
                     className="form-input"
-                    placeholder="Special instructions for the seller..."
+                    placeholder="Special instructions for the store..."
                     rows={2}
                     value={orderNotes}
                     onChange={(e) => setOrderNotes(e.target.value)}

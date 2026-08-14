@@ -2,11 +2,11 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Plus, Minus, Check } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
-import { useSellerStore } from '../stores/seller.store';
+import { useStoreStore } from '../stores/store.store';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { ImageGallery } from '../components/marketplace/ImageGallery';
-import { SellerCard } from '../components/marketplace/SellerCard';
+import { StoreCard } from '../components/marketplace/StoreCard';
 import { ReviewSection } from '../components/marketplace/ReviewSection';
 import { CartDrawer } from '../components/marketplace/CartDrawer';
 import { useAuthStore } from '../stores/auth.store';
@@ -20,7 +20,7 @@ const ProductDetail: React.FC = () => {
   const isAuthenticated = !!useAuthStore((s) => s.userSession);
 
   const products = useMarketplaceStore((s) => s.products);
-  const seller = useSellerStore((s) => s.profile);
+  const seller = useStoreStore((s) => s.profile);
   const categories = useMarketplaceStore((s) => s.categories);
   const addToCart = useMarketplaceStore((s) => s.addToCart);
   const setDirectBuyItem = useMarketplaceStore((s) => s.setDirectBuyItem);
@@ -285,8 +285,8 @@ const ProductDetail: React.FC = () => {
               </div>
             </div>
 
-            {/* Seller Card */}
-            <SellerCard seller={seller} />
+            {/* Store Card */}
+            <StoreCard seller={seller} />
 
             {/* Features */}
             {product.features.length > 0 && (
