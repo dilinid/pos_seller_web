@@ -80,6 +80,15 @@ CARD_PAY_CODE = "CRD"
 PAYMENT_METHOD_TO_PRICEMODE = {"card": "CARD", "cod": "COD"}
 PRICEMODE_TO_PAYMENT_METHOD = {v: k for k, v in PAYMENT_METHOD_TO_PRICEMODE.items()}
 
+# Refund payment methods offered on the store dashboard's refund action —
+# 'card' is the default. Distinct from PAYMENT_METHOD_TO_PRICEMODE above
+# (that's what the buyer originally paid with; this is how the store pays a
+# refund back out, which doesn't have to match).
+CASH_PAY_CODE = "CSH"
+RefundMethodLiteral = Literal["card", "cash"]
+REFUND_METHOD_TO_PAY_CODE = {"card": CARD_PAY_CODE, "cash": CASH_PAY_CODE}
+REFUND_METHOD_TO_PRICEMODE = {"card": "CARD", "cash": "CASH"}
+
 ESTIMATED_DELIVERY = "3-5 business days"
 
 
@@ -118,6 +127,10 @@ class ReturnRequestBody(BaseModel):
     items: list[ReturnRequestItem]
     reason: ReturnReasonLiteral
     note: Optional[str] = None
+
+
+class RefundRequestBody(BaseModel):
+    method: RefundMethodLiteral = "card"
 
 
 class OrderItemOut(BaseModel):
@@ -797,12 +810,18 @@ def list_seller_returns(
 @router.post("/seller/orders/returns/{rtn_ord_no}/refund", response_model=OrderOut)
 def refund_return(
     rtn_ord_no: str,
+    body: RefundRequestBody = RefundRequestBody(),
     session: Session = Depends(get_session),
     current_user: TokenClaims = Depends(get_current_user),
 ):
-    """Store-side action: marks a filed return as refunded. This is the only
-    status transition a return ever makes (no approval/reject path). Stock is
-    restocked here, at refund time, not when the return was first filed."""
+    """Store-side action: marks a filed return as refunded and records it as a
+    real invoice (pos_invhed/invdtl/invpay), same as a card sale is invoiced
+    at checkout — except every amount here is negative, since this is money
+    paid OUT to the buyer, not in. Without the negative sign, anything that
+    sums these tables for revenue (reports, the external POS app) would count
+    a refund as an additional sale. This is the only status transition a
+    return ever makes (no approval/reject path). Stock is restocked here, at
+    refund time, not when the return was first filed."""
     order = session.get(PosOrdHed, rtn_ord_no)
     if not order or order.type != RETURN_ORDER_TYPE:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Return not found")
@@ -812,25 +831,106 @@ def refund_return(
             detail=f"Return status is '{order.status.value}', expected 'returned'",
         )
 
+    refund_paymode = session.get(PosPayMode, REFUND_METHOD_TO_PAY_CODE[body.method])
+    if not refund_paymode:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Refund payment mode '{body.method}' is not configured",
+        )
+
     lines = session.exec(
         select(PosOrdDtl).where(PosOrdDtl.OrdNo == rtn_ord_no, PosOrdDtl.cancel.isnot(True))
     ).all()
-    for line in lines:
-        if line.itemcode and line.qty:
-            adjust_itemlots_stock(session, line.itemcode, line.storeId, sih_delta=line.qty)
 
-    order.status = OrderStatus.REFUNDED
-    order.payamount = order.netamount or Decimal("0")
-    order.dueamount = Decimal("0")
-    order.md_at = datetime.utcnow()
-    order.md_by_id = str(current_user.id) if current_user.id is not None else None
-    session.add(order)
-    session.commit()
-    session.refresh(order)
+    now = datetime.utcnow()
+    created_by_id = str(current_user.id) if current_user.id is not None else None
+    net_amount = order.netamount or Decimal("0")
 
-    customer = (
-        session.exec(select(PosCustomer).where(PosCustomer.cus_code == order.member)).first()
-        if order.member
-        else None
-    )
-    return _to_order_out(session, order, customer or PosCustomer())
+    # One try/except around stock + header + invoice, like place_order's own —
+    # a colliding inv_no can surface at any point via autoflush, not just at
+    # commit, so the whole attempt (including the stock adjustment) must roll
+    # back and retry together rather than partially double-applying it.
+    last_error: Optional[Exception] = None
+    for _ in range(MAX_ORD_NO_ATTEMPTS):
+        try:
+            for line in lines:
+                if line.itemcode and line.qty:
+                    adjust_itemlots_stock(session, line.itemcode, line.storeId, sih_delta=line.qty)
+
+            order.status = OrderStatus.REFUNDED
+            order.payamount = net_amount
+            order.dueamount = Decimal("0")
+            order.is_invoiced = True
+            order.md_at = now
+            order.md_by_id = created_by_id
+
+            inv_no = _generate_inv_no(session)
+            order.InvNo = inv_no
+            session.add(order)
+
+            session.add(
+                PosInvHed(
+                    InvNo=inv_no,
+                    created_at=now,
+                    created_by_id=created_by_id,
+                    storeId=order.storeId,
+                    member=order.member,
+                    pricemode=REFUND_METHOD_TO_PRICEMODE[body.method],
+                    refno=rtn_ord_no,
+                    grossamount=-net_amount,
+                    netamount=-net_amount,
+                    dueamount=Decimal("0"),
+                    payamount=-net_amount,
+                    cancel=False,
+                )
+            )
+            for line in lines:
+                sprice = line.sprice or Decimal("0")
+                qty = line.qty or Decimal("0")
+                session.add(
+                    PosInvDtl(
+                        InvNo=inv_no,
+                        lineno=line.lineno,
+                        created_at=now,
+                        created_by_id=created_by_id,
+                        storeId=line.storeId,
+                        itemcode=line.itemcode,
+                        qty=qty,
+                        sprice=sprice,
+                        amount=-(sprice * qty),
+                        cancel=False,
+                    )
+                )
+            session.add(
+                PosInvPay(
+                    Invno=inv_no,
+                    paytype=refund_paymode.pay_code,
+                    created_at=now,
+                    created_by_id=created_by_id,
+                    storeId=order.storeId,
+                    paytypedesc=refund_paymode.pay_typedesc,
+                    payamt=-net_amount,
+                    amount=-net_amount,
+                    cancel=False,
+                )
+            )
+
+            session.commit()
+        except IntegrityError as exc:
+            session.rollback()
+            last_error = exc
+            continue
+
+        session.refresh(order)
+        customer = (
+            session.exec(select(PosCustomer).where(PosCustomer.cus_code == order.member)).first()
+            if order.member
+            else None
+        )
+        return _to_order_out(session, order, customer or PosCustomer())
+
+    session.rollback()
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to allocate an invoice number. Please try again.",
+    ) from last_error

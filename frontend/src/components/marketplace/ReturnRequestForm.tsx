@@ -164,7 +164,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
           className="btn btn-primary"
           style={{ padding: '7px 16px', fontSize: '0.8rem', opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
         >
-          {submitted ? 'Submitted' : 'Submit Return Request'}
+          {submitted ? 'Submitted' : 'Submit Return'}
         </button>
       </div>
     </div>

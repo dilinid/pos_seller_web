@@ -270,3 +270,53 @@ def test_refund_twice_fails(client, session):
     client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
     resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
     assert resp.status_code == 409
+
+
+def test_refund_defaults_to_card_and_creates_invoice(client, session):
+    from pos_common.models.pos_invdtl import PosInvDtl
+    from pos_common.models.pos_invhed import PosInvHed
+    from pos_common.models.pos_invpay import PosInvPay
+
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    rtn_ord_no = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=2)).json()["id"]
+
+    resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
+    assert resp.status_code == 200
+
+    session.expire_all()
+    order = session.get(PosOrdHed, rtn_ord_no)
+    assert order.is_invoiced is True
+    assert order.InvNo
+
+    inv = session.get(PosInvHed, order.InvNo)
+    assert inv.pricemode == "CARD"
+    assert inv.refno == rtn_ord_no
+    assert inv.netamount < 0
+    assert inv.payamount == inv.netamount
+    assert inv.dueamount == 0
+
+    dtl = session.exec(select(PosInvDtl).where(PosInvDtl.InvNo == order.InvNo)).all()
+    assert len(dtl) == 1
+    assert dtl[0].qty == 2
+    assert dtl[0].amount < 0
+
+    pay = session.exec(select(PosInvPay).where(PosInvPay.Invno == order.InvNo)).first()
+    assert pay.paytype == "CRD"
+    assert pay.amount == inv.netamount
+
+
+def test_refund_with_cash_method_uses_cash_paymode(client, session):
+    from pos_common.models.pos_invpay import PosInvPay
+
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    rtn_ord_no = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=1)).json()["id"]
+
+    resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund", json={"method": "cash"})
+    assert resp.status_code == 200
+
+    session.expire_all()
+    order = session.get(PosOrdHed, rtn_ord_no)
+    pay = session.exec(select(PosInvPay).where(PosInvPay.Invno == order.InvNo)).first()
+    assert pay.paytype == "CSH"

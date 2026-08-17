@@ -41,6 +41,7 @@ def customer(session):
     session.add(cust)
     session.add(PosItemLots(itemlots_code="ITEM001", itemlots_loc="STORE01", itemlots_desc="Widget", itemlots_uom="EA", itemlots_active=True))
     session.add(PosPayMode(pay_code="CRD", pay_typedesc="Card"))
+    session.add(PosPayMode(pay_code="CSH", pay_typedesc="Cash"))
     session.commit()
     return cust
 

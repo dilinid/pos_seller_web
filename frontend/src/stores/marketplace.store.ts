@@ -4,7 +4,7 @@ import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, O
 import {
   fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchAdminOrders, fetchOrderById,
   fetchStoreLocations, mapOrderRawToOrder, submitReturn, fetchMyReturns, fetchSellerReturns, refundReturn,
-  type StoreLocation,
+  type StoreLocation, type RefundMethod,
 } from '../apis/marketplace.api';
 import { useStoreStore } from './store.store';
 import { ORDER_STATUS_VALUES } from '../data/order-status';
@@ -134,7 +134,7 @@ interface MarketplaceStoreState {
   ) => Promise<Order>;
   /** Store-side action: marks a filed return as refunded, restocking the
    * returned items. */
-  refundOrder: (rtnOrdNo: string) => Promise<Order>;
+  refundOrder: (rtnOrdNo: string, method?: RefundMethod) => Promise<Order>;
   updateOrderItemStatus: (orderId: string, productId: string, status: OrderStatus) => void;
   updateOrderPaymentStatus: (orderId: string, status: PaymentStatus) => void;
   adminUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string; contactPhone?: string }) => void;
@@ -376,8 +376,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         set({ returnOrders: [returnOrder, ...get().returnOrders] });
         return returnOrder;
       },
-      refundOrder: async (rtnOrdNo) => {
-        const raw = await refundReturn(rtnOrdNo);
+      refundOrder: async (rtnOrdNo, method) => {
+        const raw = await refundReturn(rtnOrdNo, method);
         const refunded = mapOrderRawToOrder(raw);
         set({
           returnOrders: get().returnOrders.map((o) => (o.id === refunded.id ? refunded : o)),

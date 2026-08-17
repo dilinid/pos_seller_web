@@ -10,6 +10,7 @@ import { AdminRatingForm } from '../marketplace/AdminRatingForm';
 import { MutualReviewStatus } from '../marketplace/MutualReviewStatus';
 import { RETURN_REASON_META } from '../../data/order-status';
 import { formatCurrency } from '../../utils/currency';
+import type { RefundMethod } from '../../apis/marketplace.api';
 
 interface AdminOrderDrawerProps {
   order: Order;
@@ -24,7 +25,7 @@ interface AdminOrderDrawerProps {
   onSubmitBuyerReview?: (review: UserReview) => void;
   /** Store-side action for a filed return (order.isReturn, status 'returned')
    * — marks it refunded and restocks the returned items. */
-  onRefund?: (rtnOrdNo: string) => Promise<void>;
+  onRefund?: (rtnOrdNo: string, method: RefundMethod) => Promise<void>;
 }
 
 export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
@@ -37,6 +38,7 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
   const [noteSaved, setNoteSaved] = useState(false);
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
+  const [refundMethod, setRefundMethod] = useState<RefundMethod>('card');
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
     setRefunding(true);
     setRefundError(null);
     try {
-      await onRefund(order.id);
+      await onRefund(order.id, refundMethod);
     } catch (err: any) {
       setRefundError(err?.response?.data?.detail ?? err?.message ?? 'Failed to process refund');
     } finally {
@@ -280,6 +282,25 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
                 </div>
               ) : (
                 <>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    {(['card', 'cash'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setRefundMethod(m)}
+                        disabled={refunding}
+                        style={{
+                          flex: 1, padding: '8px 12px', fontSize: '0.8rem', fontWeight: 600,
+                          borderRadius: '8px', border: `1px solid ${refundMethod === m ? 'var(--accent, #2563eb)' : 'var(--border-color, #e2e8f0)'}`,
+                          background: refundMethod === m ? 'var(--accent, #2563eb)' : 'transparent',
+                          color: refundMethod === m ? '#fff' : 'var(--text-muted)',
+                          cursor: refunding ? 'not-allowed' : 'pointer', textTransform: 'capitalize',
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     onClick={handleRefund}
                     disabled={refunding || !onRefund}
@@ -289,7 +310,7 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
                       opacity: refunding || !onRefund ? 0.6 : 1, cursor: refunding || !onRefund ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    {refunding ? 'Processing…' : 'Process Refund'}
+                    {refunding ? 'Processing…' : `Refund via ${refundMethod === 'card' ? 'Card' : 'Cash'}`}
                   </button>
                   {refundError && (
                     <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#dc2626' }}>{refundError}</div>

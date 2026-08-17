@@ -217,8 +217,14 @@ export async function fetchSellerReturns(): Promise<OrderRaw[]> {
   return response.data;
 }
 
-/** Store-side action: marks a filed return as refunded. */
-export async function refundReturn(rtnOrdNo: string): Promise<OrderRaw> {
-  const response = await api.post<OrderRaw>(`/api/marketplace/seller/orders/returns/${encodeURIComponent(rtnOrdNo)}/refund`);
+export type RefundMethod = 'card' | 'cash';
+
+/** Store-side action: marks a filed return as refunded, and records it as an
+ * invoice (pos_invhed/invdtl/invpay) paid out via the given method. */
+export async function refundReturn(rtnOrdNo: string, method: RefundMethod = 'card'): Promise<OrderRaw> {
+  const response = await api.post<OrderRaw>(
+    `/api/marketplace/seller/orders/returns/${encodeURIComponent(rtnOrdNo)}/refund`,
+    { method },
+  );
   return response.data;
 }
