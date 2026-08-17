@@ -31,6 +31,7 @@ from pos_common.models.pos_invhed import PosInvHed
 from pos_common.models.pos_invpay import PosInvPay
 from pos_common.models.pos_item_resource import PosItemResource
 from pos_common.models.pos_itemlots import PosItemLots
+from pos_common.models.pos_loc import PosLoc
 from pos_common.models.pos_orddtl import PosOrdDtl
 from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
 from pos_common.models.pos_paymode import PosPayMode
@@ -46,9 +47,10 @@ MAX_ORD_NO_ATTEMPTS = 5
 # Return requests are their own pos_ordhed row (type 'RTN'), linked back to the
 # original order via `refno` — the same generic-column-reuse trick 'ONL' uses
 # (pricemode for payment method, refno for the online invoice's source order).
-# No pos_return_type/new columns: pricemode holds a short reason code below and
+# No pos_return_type/new columns: pricemode holds a short reason code below,
 # ordaddress (meaningless for a return, which never ships anywhere) holds the
-# buyer's free-text note instead.
+# buyer's free-text note, and storeId holds the buyer's chosen return/drop-off
+# location instead of the original order's location (see request_return).
 RETURN_ORDER_TYPE = "RTN"
 RETURN_ORD_NO_PREFIX = "R"
 
@@ -127,6 +129,11 @@ class ReturnRequestBody(BaseModel):
     items: list[ReturnRequestItem]
     reason: ReturnReasonLiteral
     note: Optional[str] = None
+    # The pos_loc.loc_code the buyer picked as where they intend to drop off /
+    # ship back the item — purely informational (see request_return below):
+    # refund-time restocking still targets the original order line's own
+    # storeId, not this. Stored as the RTN row's own storeId.
+    returnLocationCode: str = Field(min_length=1, max_length=10)
 
 
 class RefundRequestBody(BaseModel):
@@ -173,6 +180,14 @@ class OrderOut(BaseModel):
     # Only meaningful (and only ever True) on a non-return ONL order: whether
     # the buyer can still file a return request against it right now.
     returnEligible: bool = False
+    # This order's own pos_loc — the location it was placed at (ONL) or the
+    # buyer's chosen drop-off location (RTN, see ReturnRequestBody.returnLocationCode).
+    locationCode: Optional[str] = None
+    locationName: Optional[str] = None
+    locationAddress: Optional[str] = None
+    # RTN rows only: the *original* order's location, resolved via `refno`.
+    originalLocationName: Optional[str] = None
+    originalLocationAddress: Optional[str] = None
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -205,6 +220,17 @@ def _item_thumbnail(session: Session, item_code: Optional[str]) -> Optional[str]
     if path.startswith(("http://", "https://", "/")):
         return path
     return f"/{path}"
+
+
+def _location_label(session: Session, loc_code: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """Resolves a pos_loc.loc_code to its (name, address) for display — used for
+    both an order's own location and, for RTN rows, the original order's."""
+    if not loc_code:
+        return None, None
+    loc = session.get(PosLoc, loc_code)
+    if not loc:
+        return None, None
+    return loc.loc_desc, loc.loc_address
 
 
 def _returned_quantities_for_order(session: Session, ord_no: str) -> dict[str, Decimal]:
@@ -320,6 +346,12 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
         and _within_return_window(order, setup)
     )
 
+    location_name, location_address = _location_label(session, order.storeId)
+    original_location_name: Optional[str] = None
+    original_location_address: Optional[str] = None
+    if is_return and original_order:
+        original_location_name, original_location_address = _location_label(session, original_order.storeId)
+
     return OrderOut(
         id=order.OrdNo,
         createdAt=order.created_at.isoformat() if order.created_at else "",
@@ -338,6 +370,11 @@ def _to_order_out(session: Session, order: PosOrdHed, customer: PosCustomer) -> 
         isReturn=is_return,
         originalOrderId=order.refno if is_return else None,
         returnEligible=return_eligible,
+        locationCode=order.storeId,
+        locationName=location_name,
+        locationAddress=location_address,
+        originalLocationName=original_location_name,
+        originalLocationAddress=original_location_address,
     )
 
 
@@ -658,7 +695,10 @@ def request_return(
                 is_invoiced=False,
                 created_at=now,
                 created_by_id=created_by_id,
-                storeId=order.storeId,
+                # The buyer's chosen return/drop-off location — informational
+                # only (see ReturnRequestBody.returnLocationCode); restocking
+                # below still targets each line's own (original) storeId.
+                storeId=body.returnLocationCode,
                 member=customer.cus_code,
                 refno=ord_no,
                 pricemode=reason_code,

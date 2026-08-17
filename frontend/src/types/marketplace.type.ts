@@ -110,6 +110,15 @@ export interface Order {
   /** Only meaningful (and only ever true) on a non-return order: whether the
    * buyer can still file a return request against it right now. */
   returnEligible?: boolean;
+  /** This order's own pos_loc — where it was placed (a regular order) or the
+   * buyer's chosen drop-off location (a return, see returnLocationCode on
+   * submitReturnRequest). */
+  locationCode?: string;
+  locationName?: string;
+  locationAddress?: string;
+  /** Return orders only: the *original* order's location, resolved via refno. */
+  originalLocationName?: string;
+  originalLocationAddress?: string;
 }
 
 export interface UserReview {

@@ -4,8 +4,15 @@ import { formatCurrency } from '../../utils/currency';
 interface ReturnReceiptProps {
   returnOrderId: string;
   originalOrderId: string;
-  storeName: string;
-  storeAddress: string;
+  /** Where the original order was placed — resolved via the order's own
+   * pos_loc (see OrderOut.originalLocationName/Address). Falls back to the
+   * store's own name/pickup address if the location couldn't be resolved. */
+  originalLocationName: string;
+  originalLocationAddress: string;
+  /** Where the buyer chose to drop off / ship back this return (see
+   * ReturnRequestForm's location dropdown). */
+  returnLocationName: string;
+  returnLocationAddress: string;
   orderedAt: string;
   printedAt: Date;
   items: OrderItem[];
@@ -23,7 +30,8 @@ function formatDateTime(value: string | Date): string {
  * in index.css) and only made visible by the browser's print stylesheet, so it
  * never needs its own modal/dialog. */
 export const ReturnReceipt: React.FC<ReturnReceiptProps> = ({
-  returnOrderId, originalOrderId, storeName, storeAddress, orderedAt, printedAt, items, totalAmount,
+  returnOrderId, originalOrderId, originalLocationName, originalLocationAddress,
+  returnLocationName, returnLocationAddress, orderedAt, printedAt, items, totalAmount,
 }) => {
   return (
     <div style={{ padding: '24px', fontFamily: 'var(--font-sans)', color: '#000' }}>
@@ -38,7 +46,11 @@ export const ReturnReceipt: React.FC<ReturnReceiptProps> = ({
           </tr>
           <tr>
             <td style={{ padding: '2px 0', fontWeight: 600, verticalAlign: 'top' }}>Original Location:</td>
-            <td style={{ padding: '2px 0' }}>{storeName}{storeAddress ? ` — ${storeAddress}` : ''}</td>
+            <td style={{ padding: '2px 0' }}>{originalLocationName}{originalLocationAddress ? ` — ${originalLocationAddress}` : ''}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '2px 0', fontWeight: 600, verticalAlign: 'top' }}>Return Location:</td>
+            <td style={{ padding: '2px 0' }}>{returnLocationName}{returnLocationAddress ? ` — ${returnLocationAddress}` : ''}</td>
           </tr>
           <tr>
             <td style={{ padding: '2px 0', fontWeight: 600 }}>Ordered Date:</td>

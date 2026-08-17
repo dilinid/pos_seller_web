@@ -129,6 +129,11 @@ export interface OrderRaw {
   isReturn: boolean;
   originalOrderId: string | null;
   returnEligible: boolean;
+  locationCode: string | null;
+  locationName: string | null;
+  locationAddress: string | null;
+  originalLocationName: string | null;
+  originalLocationAddress: string | null;
 }
 
 export function mapOrderRawToOrder(raw: OrderRaw): Order {
@@ -166,6 +171,11 @@ export function mapOrderRawToOrder(raw: OrderRaw): Order {
     isReturn: raw.isReturn,
     originalOrderId: raw.originalOrderId ?? undefined,
     returnEligible: raw.returnEligible,
+    locationCode: raw.locationCode ?? undefined,
+    locationName: raw.locationName ?? undefined,
+    locationAddress: raw.locationAddress ?? undefined,
+    originalLocationName: raw.originalLocationName ?? undefined,
+    originalLocationAddress: raw.originalLocationAddress ?? undefined,
   };
 }
 
@@ -195,6 +205,10 @@ export interface ReturnRequestBody {
   items: ReturnRequestItem[];
   reason: string;
   note?: string;
+  /** The pos_loc.loc_code the buyer picked as where they intend to drop off /
+   * ship back the item — informational only, doesn't affect where the item's
+   * stock is restocked at refund time. */
+  returnLocationCode: string;
 }
 
 /** Files a return request against one of the buyer's own delivered orders —

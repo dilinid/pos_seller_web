@@ -130,7 +130,8 @@ interface MarketplaceStoreState {
     order: Order,
     selections: { item: OrderItem; quantity: number }[],
     reason: ReturnReason,
-    note?: string,
+    note: string | undefined,
+    returnLocationCode: string,
   ) => Promise<Order>;
   /** Store-side action: marks a filed return as refunded, restocking the
    * returned items. */
@@ -366,11 +367,12 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       setDirectBuyItem: (item) => set({ directBuyItem: item }),
 
       addOrder: (order) => set({ orders: [order, ...get().orders] }),
-      submitReturnRequest: async (order, selections, reason, note) => {
+      submitReturnRequest: async (order, selections, reason, note, returnLocationCode) => {
         const raw = await submitReturn(order.id, {
           items: selections.map(({ item, quantity }) => ({ itemCode: item.productId, quantity })),
           reason,
           note: note?.trim() || undefined,
+          returnLocationCode,
         });
         const returnOrder = mapOrderRawToOrder(raw);
         set({ returnOrders: [returnOrder, ...get().returnOrders] });

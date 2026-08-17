@@ -156,8 +156,13 @@ def test_place_order_retries_when_collision_surfaces_at_intermediate_autoflush(c
     assert resp.json()["ordNo"] == "O000002"
 
 
-def _return_body(quantity=1, reason="defective", note=None):
-    return {"items": [{"itemCode": "ITEM001", "quantity": quantity}], "reason": reason, "note": note}
+def _return_body(quantity=1, reason="defective", note=None, return_location_code="STORE02"):
+    return {
+        "items": [{"itemCode": "ITEM001", "quantity": quantity}],
+        "reason": reason,
+        "note": note,
+        "returnLocationCode": return_location_code,
+    }
 
 
 def test_return_before_delivered_fails(client):
@@ -203,6 +208,27 @@ def test_return_success_creates_rtn_order_and_does_not_restock(client, session):
     session.expire_all()
     lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
     assert not lot.itemlots_sih  # restocking only happens on refund, not on filing
+
+
+def test_return_reports_original_and_return_location(client, session):
+    ord_no = _place(client, payment_method="cod", location_code="STORE01").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    resp = client.post(
+        f"/api/marketplace/orders/{ord_no}/return",
+        json=_return_body(quantity=1, return_location_code="STORE02"),
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["locationCode"] == "STORE02"
+    assert body["locationName"] == "Kollupitiya"
+    assert body["locationAddress"] == "No.45, Galle Road"
+    assert body["originalLocationName"] == "Jayakirana"
+    assert body["originalLocationAddress"] == "No.123, Main Road"
+
+    original = client.get(f"/api/marketplace/orders/{ord_no}").json()
+    assert original["locationCode"] == "STORE01"
+    assert original["locationName"] == "Jayakirana"
 
 
 def test_return_exhausted_quantity_fails_on_second_request(client, session):

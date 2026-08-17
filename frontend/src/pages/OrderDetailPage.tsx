@@ -20,6 +20,7 @@ const OrderDetailPage: React.FC = () => {
   const loadOrder = useMarketplaceStore((s) => s.loadOrder);
   const loadReturnOrders = useMarketplaceStore((s) => s.loadReturnOrders);
   const submitReturnRequest = useMarketplaceStore((s) => s.submitReturnRequest);
+  const locations = useMarketplaceStore((s) => s.locations);
   const profile = useStoreStore((s) => s.profile);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
   const reviewPeriods = useMarketplaceStore((s) => s.reviewPeriods);
@@ -86,9 +87,9 @@ const OrderDetailPage: React.FC = () => {
     submitReview(review);
   };
 
-  const handleSubmitReturn: NonNullable<React.ComponentProps<typeof OrderStoreSection>['onSubmitReturn']> = (selections, reason, note) => {
+  const handleSubmitReturn: NonNullable<React.ComponentProps<typeof OrderStoreSection>['onSubmitReturn']> = (selections, reason, note, returnLocationCode) => {
     if (!order) throw new Error('Cannot submit a return before the order has loaded');
-    return submitReturnRequest(order, selections, reason, note);
+    return submitReturnRequest(order, selections, reason, note, returnLocationCode);
   };
 
   const handleSellerReviewSubmit = (review: UserReview) => {
@@ -203,6 +204,8 @@ const OrderDetailPage: React.FC = () => {
                   returnedQuantities={returnedQuantities}
                   returnsForOrder={returnsForOrder}
                   onSubmitReturn={order.isReturn ? undefined : handleSubmitReturn}
+                  locations={locations}
+                  orderLocationCode={order.locationCode}
                 />
               </div>
 

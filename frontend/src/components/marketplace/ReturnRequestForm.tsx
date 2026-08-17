@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { OrderItem, ReturnReason } from '../../types/marketplace.type';
+import type { StoreLocation } from '../../apis/marketplace.api';
 import { RETURN_REASON_META, RETURN_REASON_VALUES } from '../../data/order-status';
 import { ProductImage } from '../ui/ProductImage';
 import { formatCurrency } from '../../utils/currency';
@@ -14,23 +15,38 @@ interface ReturnableItem {
 interface ReturnRequestFormProps {
   items: ReturnableItem[];
   onCancel: () => void;
-  onSubmit: (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => void;
+  onSubmit: (
+    selections: { item: OrderItem; quantity: number }[],
+    reason: ReturnReason,
+    note: string,
+    returnLocationCode: string,
+  ) => void;
   /** True once this request has been successfully submitted — freezes every
    * field plus Cancel/Submit, and is the only state in which Print is enabled. */
   submitted?: boolean;
   onPrint?: () => void;
+  /** Locations the buyer can pick as where they intend to drop off / ship back
+   * the item — the same list the checkout location dropdown uses. */
+  locations: StoreLocation[];
+  /** Preselects the dropdown to the order's original location, if known. */
+  defaultLocationCode?: string;
 }
 
-export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onCancel, onSubmit, submitted = false, onPrint }) => {
+export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({
+  items, onCancel, onSubmit, submitted = false, onPrint, locations, defaultLocationCode,
+}) => {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>(
     Object.fromEntries(items.map(({ item, maxQuantity }) => [item.productId, maxQuantity]))
   );
   const [reason, setReason] = useState<ReturnReason | ''>('');
   const [note, setNote] = useState('');
+  const [returnLocationCode, setReturnLocationCode] = useState(
+    defaultLocationCode ?? locations[0]?.code ?? ''
+  );
 
   const selectedItems = items.filter(({ item }) => selected[item.productId]);
-  const canSubmit = !submitted && selectedItems.length > 0 && reason.length > 0;
+  const canSubmit = !submitted && selectedItems.length > 0 && reason.length > 0 && returnLocationCode.length > 0;
 
   const toggleItem = (productId: string) => {
     setSelected((prev) => ({ ...prev, [productId]: !prev[productId] }));
@@ -47,7 +63,7 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
       item,
       quantity: quantities[item.productId] ?? 1,
     }));
-    onSubmit(selections, reason, note);
+    onSubmit(selections, reason, note, returnLocationCode);
   };
 
   return (
@@ -103,6 +119,24 @@ export const ReturnRequestForm: React.FC<ReturnRequestFormProps> = ({ items, onC
             </div>
           );
         })}
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+          Return location
+        </label>
+        <select
+          value={returnLocationCode}
+          onChange={(e) => setReturnLocationCode(e.target.value)}
+          disabled={submitted}
+          className="form-input"
+          style={{ fontSize: '0.82rem', padding: '7px 10px' }}
+        >
+          {locations.length === 0 && <option value="">No locations available</option>}
+          {locations.map((loc) => (
+            <option key={loc.code} value={loc.code}>{loc.name}</option>
+          ))}
+        </select>
       </div>
 
       <div style={{ marginBottom: '10px' }}>

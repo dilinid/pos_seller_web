@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Truck, MapPin, Star, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import type { Order, OrderItem, ReturnReason, UserReview, ReviewPeriod } from '../../types/marketplace.type';
 import type { StoreProfile } from '../../types/store.type';
+import type { StoreLocation } from '../../apis/marketplace.api';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { StoreBadge } from './StoreBadge';
 import { PriceDisplay } from '../ui/PriceDisplay';
@@ -39,13 +40,24 @@ interface OrderStoreSectionProps {
   /** Return orders already filed against this order, for the "view return"
    * link next to an already-returned item. */
   returnsForOrder?: Order[];
-  onSubmitReturn?: (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => Promise<Order>;
+  onSubmitReturn?: (
+    selections: { item: OrderItem; quantity: number }[],
+    reason: ReturnReason,
+    note: string,
+    returnLocationCode: string,
+  ) => Promise<Order>;
+  /** Locations the buyer can pick as where they intend to drop off / ship back
+   * a returned item. Omit for order views that don't support returns. */
+  locations?: StoreLocation[];
+  /** The order's own location code — preselects the return form's location
+   * dropdown to "same as where this order was placed". */
+  orderLocationCode?: string;
 }
 
 export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
   seller, items, orderId, orderCreatedAt, existingReviews, onReviewSubmit,
   reviewPeriod, userId, userName, onSellerReviewSubmit, onStartReviewPeriod,
-  returnedQuantities = {}, returnsForOrder = [], onSubmitReturn,
+  returnedQuantities = {}, returnsForOrder = [], onSubmitReturn, locations = [], orderLocationCode,
 }) => {
   const [expanded, setExpanded] = useState(true);
   const [reviewingProduct, setReviewingProduct] = useState<string | null>(null);
@@ -81,12 +93,17 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
   const findReturnForProduct = (productId: string) =>
     returnsForOrder.find((ro) => ro.items.some((i) => i.productId === productId));
 
-  const handleReturnSubmit = async (selections: { item: OrderItem; quantity: number }[], reason: ReturnReason, note: string) => {
+  const handleReturnSubmit = async (
+    selections: { item: OrderItem; quantity: number }[],
+    reason: ReturnReason,
+    note: string,
+    returnLocationCode: string,
+  ) => {
     if (!onSubmitReturn) return;
     setReturnSubmitting(true);
     setReturnError(null);
     try {
-      const created = await onSubmitReturn(selections, reason, note);
+      const created = await onSubmitReturn(selections, reason, note, returnLocationCode);
       setReturnSuccess(created);
       // Keep the form open (now frozen — see ReturnRequestForm's `submitted`
       // prop) rather than hiding it, so Print stays reachable in place.
@@ -313,6 +330,8 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
                 onSubmit={handleReturnSubmit}
                 submitted={!!returnSuccess}
                 onPrint={handlePrintReturn}
+                locations={locations}
+                defaultLocationCode={orderLocationCode}
               />
             </div>
           ) : canRequestReturn && !returnSuccess && (
@@ -434,8 +453,10 @@ export const OrderStoreSection: React.FC<OrderStoreSectionProps> = ({
           <ReturnReceipt
             returnOrderId={returnSuccess.id}
             originalOrderId={orderId}
-            storeName={storeName}
-            storeAddress={seller.pickupAddress}
+            originalLocationName={returnSuccess.originalLocationName || storeName}
+            originalLocationAddress={returnSuccess.originalLocationAddress ?? seller.pickupAddress ?? ''}
+            returnLocationName={returnSuccess.locationName || storeName}
+            returnLocationAddress={returnSuccess.locationAddress ?? seller.pickupAddress ?? ''}
             orderedAt={orderCreatedAt ?? ''}
             printedAt={printedAt}
             items={returnSuccess.items}
