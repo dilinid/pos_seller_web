@@ -1,26 +1,23 @@
 import { MapPin, Truck } from 'lucide-react';
 import type { OrderStatus } from '../../types/marketplace.type';
+import { getTimelineStep } from '../../data/order-status';
 
 interface DeliveryTrackerProps {
   status: OrderStatus;
-  sellerPickupAddress: string;
+  storePickupAddress: string;
   estimatedDeliveryDays: string;
 }
 
-function stepIndex(status: OrderStatus): number {
-  const map: Record<OrderStatus, number> = {
-    pending: 0, picking: 1, packing: 2, shipped: 3, delivered: 4, cancelled: -1,
-  };
-  return map[status] ?? 0;
-}
-
-export const DeliveryTracker: React.FC<DeliveryTrackerProps> = ({ status, sellerPickupAddress, estimatedDeliveryDays }) => {
-  const current = stepIndex(status);
+export const DeliveryTracker: React.FC<DeliveryTrackerProps> = ({ status, storePickupAddress, estimatedDeliveryDays }) => {
+  const current = getTimelineStep(status);
   const shippedStage = current >= 3;
   const deliveredStage = current >= 4;
   const isCancelled = status === 'cancelled';
+  const isReturned = status === 'returned' || status === 'refunded';
 
-  if (isCancelled) return null;
+  // Neither cancelled nor returned orders are "in transit" — the delivery
+  // funnel this tracker visualizes doesn't apply to either.
+  if (isCancelled || isReturned) return null;
 
   return (
     <div style={{
@@ -43,7 +40,7 @@ export const DeliveryTracker: React.FC<DeliveryTrackerProps> = ({ status, seller
             <MapPin size={13} />
           </div>
           <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
-            Seller
+            Store
           </span>
         </div>
 
@@ -104,7 +101,7 @@ export const DeliveryTracker: React.FC<DeliveryTrackerProps> = ({ status, seller
         fontSize: '0.72rem', color: 'var(--text-muted)',
       }}>
         <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {sellerPickupAddress}
+          {storePickupAddress}
         </span>
         <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
           Est. {estimatedDeliveryDays}

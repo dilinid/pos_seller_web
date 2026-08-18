@@ -15,7 +15,6 @@ from sqlmodel import Field, SQLModel
 
 from pos_common.models.pos_order_type import PosOrderType  # noqa: F401
 
-
 class OrderStatus(str, PyEnum):
     PENDING = "pending"
     PICKING = "picking"
@@ -23,6 +22,8 @@ class OrderStatus(str, PyEnum):
     SHIPPED = "shipped"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    RETURNED = "returned"
+    REFUNDED = "refunded"
 
 
 class PosOrdHed(SQLModel, table=True):

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { CreditCard, Banknote, CheckCircle2, Wallet, AlertCircle } from 'lucide-react';
 import { useMarketplaceStore } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
-import { useSellerStore } from '../stores/seller.store';
+import { useStoreStore } from '../stores/store.store';
 import { useCODStore } from '../stores/cod.store';
 import { calculateDeliveryFee } from '../utils/delivery.utils';
 import { formatCurrency } from '../utils/currency';
@@ -18,7 +18,7 @@ const PaymentPage: React.FC = () => {
 
   const cart = useMarketplaceStore((s) => s.cart);
   const directBuyItem = useMarketplaceStore((s) => s.directBuyItem);
-  const profile = useSellerStore((s) => s.profile);
+  const profile = useStoreStore((s) => s.profile);
   const searchQuery = useMarketplaceStore((s) => s.searchQuery);
   const setSearchQuery = useMarketplaceStore((s) => s.setSearchQuery);
   const deliveryDistrict = useMarketplaceStore((s) => s.deliveryDistrict);
@@ -130,8 +130,6 @@ const PaymentPage: React.FC = () => {
       mrp: item.product.mrp,
       quantity: item.quantity,
       unit: item.product.unit,
-      sellerId: profile.id,
-      sellerName: profile.storeName || 'Our Store',
       deliveryMethod: deliveryOrPickupMethod,
       deliveryFee: orderSummary.fee,
       status: 'pending' as const,

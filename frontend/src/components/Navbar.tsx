@@ -13,7 +13,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { useSellerStore } from "../stores/seller.store";
+import { isAdmin } from "../stores/auth.store";
 
 interface NavbarProps {
   onCartToggle?: () => void;
@@ -28,7 +28,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { userSession, loading, user, logout } = useAuth();
   const isAuthenticated = !!userSession;
-  const isSeller = useSellerStore((s) => s.isSeller(userSession?.userRole));
+  const isAdminUser = isAdmin(userSession?.userRole);
   const cart = useMarketplaceStore((s) => s.cart);
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
@@ -434,9 +434,9 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : isAuthenticated ? (
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              {isSeller && (
+              {isAdminUser && (
                 <button
-                  onClick={() => navigate('/seller/dashboard')}
+                  onClick={() => navigate('/admin/dashboard')}
                   style={{
                     background: 'var(--primary-light)', border: 'none', cursor: 'pointer',
                     color: 'var(--primary)', fontWeight: 600,
@@ -444,7 +444,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
                     lineHeight: 1.4,
                   }}
-                  title="Go to seller dashboard"
+                  title="Go to store admin"
                 >
                   My Store
                 </button>

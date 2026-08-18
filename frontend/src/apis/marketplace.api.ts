@@ -106,6 +106,9 @@ export interface OrderItemRaw {
   deliveryMethod: 'delivery' | 'pickup';
   deliveryFee: number;
   status: OrderStatus;
+  isReturnable: boolean;
+  returnReason: string | null;
+  returnReasonNote: string | null;
 }
 
 export interface OrderRaw {
@@ -123,11 +126,17 @@ export interface OrderRaw {
   paymentStatus: PaymentStatus;
   grandTotal: number;
   estimatedDelivery: string;
+  isReturn: boolean;
+  originalOrderId: string | null;
+  returnEligible: boolean;
+  locationCode: string | null;
+  locationName: string | null;
+  locationAddress: string | null;
+  originalLocationName: string | null;
+  originalLocationAddress: string | null;
 }
 
-/** Fills in the single-tenant seller identity (see useSellerStore's `id: 'store'`)
- * that the backend doesn't know about — this app has exactly one seller. */
-export function mapOrderRawToOrder(raw: OrderRaw, sellerId: string, sellerName: string): Order {
+export function mapOrderRawToOrder(raw: OrderRaw): Order {
   const items: OrderItem[] = raw.items.map((item) => ({
     productId: item.productId,
     productName: item.productName,
@@ -136,11 +145,12 @@ export function mapOrderRawToOrder(raw: OrderRaw, sellerId: string, sellerName: 
     mrp: item.mrp ?? undefined,
     quantity: item.quantity,
     unit: item.unit,
-    sellerId,
-    sellerName,
     deliveryMethod: item.deliveryMethod,
     deliveryFee: item.deliveryFee,
     status: item.status,
+    isReturnable: item.isReturnable,
+    returnReason: (item.returnReason ?? undefined) as OrderItem['returnReason'],
+    returnReasonNote: item.returnReasonNote ?? undefined,
   }));
 
   return {
@@ -158,6 +168,14 @@ export function mapOrderRawToOrder(raw: OrderRaw, sellerId: string, sellerName: 
     paymentStatus: raw.paymentStatus,
     grandTotal: raw.grandTotal,
     estimatedDelivery: raw.estimatedDelivery,
+    isReturn: raw.isReturn,
+    originalOrderId: raw.originalOrderId ?? undefined,
+    returnEligible: raw.returnEligible,
+    locationCode: raw.locationCode ?? undefined,
+    locationName: raw.locationName ?? undefined,
+    locationAddress: raw.locationAddress ?? undefined,
+    originalLocationName: raw.originalLocationName ?? undefined,
+    originalLocationAddress: raw.originalLocationAddress ?? undefined,
   };
 }
 
@@ -166,14 +184,73 @@ export async function fetchMyOrders(): Promise<OrderRaw[]> {
   return response.data;
 }
 
-/** Every online order for the store, across all customers — the seller-side
+/** Every online order for the store, across all customers — the store admin's
  * counterpart to fetchMyOrders. */
-export async function fetchSellerOrders(): Promise<OrderRaw[]> {
+export async function fetchAdminOrders(): Promise<OrderRaw[]> {
   const response = await api.get<OrderRaw[]>('/api/marketplace/seller/orders');
   return response.data;
 }
 
 export async function fetchOrderById(orderId: string): Promise<OrderRaw> {
   const response = await api.get<OrderRaw>(`/api/marketplace/orders/${encodeURIComponent(orderId)}`);
+  return response.data;
+}
+
+export interface ReturnRequestItem {
+  itemCode: string;
+  quantity: number;
+}
+
+export interface ReturnRequestBody {
+  items: ReturnRequestItem[];
+  reason: string;
+  note?: string;
+  /** The pos_loc.loc_code the buyer picked as where they intend to drop off /
+   * ship back the item — informational only, doesn't affect where the item's
+   * stock is restocked at refund time. */
+  returnLocationCode: string;
+}
+
+/** Files a return request against one of the buyer's own delivered orders —
+ * creates a real 'RTN' pos_ordhed row (no approval step). */
+export async function submitReturn(ordNo: string, body: ReturnRequestBody): Promise<OrderRaw> {
+  const response = await api.post<OrderRaw>(`/api/marketplace/orders/${encodeURIComponent(ordNo)}/return`, body);
+  return response.data;
+}
+
+/** The current buyer's own return requests. */
+export async function fetchMyReturns(): Promise<OrderRaw[]> {
+  const response = await api.get<OrderRaw[]>('/api/marketplace/orders/returns');
+  return response.data;
+}
+
+/** Every return request across all customers — backs the store dashboard's
+ * refunding queue. */
+export async function fetchSellerReturns(): Promise<OrderRaw[]> {
+  const response = await api.get<OrderRaw[]>('/api/marketplace/seller/orders/returns');
+  return response.data;
+}
+
+export type RefundMethod = 'card' | 'cash';
+
+/** Card reference details the cashier enters when refunding to a card — no
+ * real payment gateway here, this is just kept as a paper trail on the
+ * refund's pos_invpay row (paytypedesc/crdcardno). */
+export interface RefundCardDetails {
+  cardType: string;
+  cardLastFour: string;
+}
+
+/** Store-side action: marks a filed return as refunded, and records it as an
+ * invoice (pos_invhed/invdtl/invpay) paid out via the given method. */
+export async function refundReturn(
+  rtnOrdNo: string,
+  method: RefundMethod = 'card',
+  cardDetails?: RefundCardDetails,
+): Promise<OrderRaw> {
+  const response = await api.post<OrderRaw>(
+    `/api/marketplace/seller/orders/returns/${encodeURIComponent(rtnOrdNo)}/refund`,
+    { method, ...(method === 'card' ? cardDetails : {}) },
+  );
   return response.data;
 }

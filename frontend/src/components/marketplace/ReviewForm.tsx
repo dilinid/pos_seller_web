@@ -15,25 +15,25 @@ interface ReviewFormProps {
 
 const TARGET_LABELS: Record<ReviewTarget, string> = {
   product: 'product',
-  seller: 'seller',
+  seller: 'store',
   buyer: 'buyer',
 };
 
 const TARGET_PLACEHOLDERS: Record<ReviewTarget, string> = {
   product: 'Tell us what you think about this product...',
-  seller: 'Describe your experience with this seller...',
+  seller: 'Describe your experience with this store...',
   buyer: 'Describe your experience with this buyer...',
 };
 
 const SUBMIT_LABELS: Record<ReviewTarget, string> = {
   product: 'Submit Review',
-  seller: 'Rate Seller',
+  seller: 'Rate Store',
   buyer: 'Rate Buyer',
 };
 
 const SUBMITTED_MESSAGES: Record<ReviewTarget, string> = {
   product: 'Review submitted! Thank you.',
-  seller: 'Seller rating submitted! Thank you.',
+  seller: 'Store rating submitted! Thank you.',
   buyer: 'Buyer rating submitted! Thank you.',
 };
 

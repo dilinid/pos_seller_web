@@ -1,5 +1,5 @@
 import { Package } from 'lucide-react';
-import type { SellerProfile } from '../../types/seller.type';
+import type { StoreProfile } from '../../types/store.type';
 import { StarRating } from '../ui/StarRating';
 
 const AVATAR_COLORS = [
@@ -11,10 +11,10 @@ function getInitials(name: string): string {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function getAvatarColor(sellerId: string): string {
+function getAvatarColor(storeId: string): string {
   let hash = 0;
-  for (let i = 0; i < sellerId.length; i++) {
-    hash = sellerId.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < storeId.length; i++) {
+    hash = storeId.charCodeAt(i) + ((hash << 5) - hash);
   }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
@@ -27,7 +27,7 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 interface StoreHeaderProps {
-  seller: SellerProfile;
+  seller: StoreProfile;
   dynamicRating?: number;
   dynamicReviewCount?: number;
 }
@@ -86,9 +86,14 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ seller, dynamicRating,
             fontWeight: 700,
             flexShrink: 0,
             backdropFilter: 'blur(4px)',
+            overflow: 'hidden',
           }}
         >
-          {getInitials(storeName)}
+          {seller.logoUrl ? (
+            <img src={seller.logoUrl} alt={storeName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            getInitials(storeName)
+          )}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>

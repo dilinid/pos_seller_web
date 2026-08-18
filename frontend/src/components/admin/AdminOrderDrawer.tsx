@@ -1,0 +1,471 @@
+import { useEffect, useState, useRef } from 'react';
+import { X, MapPin, Phone, Mail, ClipboardList, Star, Store, Truck, RotateCcw } from 'lucide-react';
+import type { Order, OrderStatus, UserReview, ReviewPeriod } from '../../types/marketplace.type';
+import { OrderStatusBadge } from '../marketplace/OrderStatusBadge';
+import { StarRating } from '../ui/StarRating';
+import { ProductImage } from '../ui/ProductImage';
+import { AdminOrderTimeline } from './AdminOrderTimeline';
+import { AdminOrderStatusActions } from './AdminOrderStatusActions';
+import { AdminRatingForm } from '../marketplace/AdminRatingForm';
+import { MutualReviewStatus } from '../marketplace/MutualReviewStatus';
+import { RETURN_REASON_META } from '../../data/order-status';
+import { formatCurrency } from '../../utils/currency';
+import type { RefundMethod, RefundCardDetails } from '../../apis/marketplace.api';
+
+interface AdminOrderDrawerProps {
+  order: Order;
+  storeId: string;
+  onClose: () => void;
+  onUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string }) => void;
+  onUpdateNote: (orderId: string, productId: string, note: string) => void;
+  allReviews?: UserReview[];
+  reviewPeriods?: ReviewPeriod[];
+  adminUserId?: string;
+  adminUserName?: string;
+  onSubmitBuyerReview?: (review: UserReview) => void;
+  /** Store-side action for a filed return (order.isReturn, status 'returned')
+   * — marks it refunded and restocks the returned items. */
+  onRefund?: (rtnOrdNo: string, method: RefundMethod, cardDetails?: RefundCardDetails) => Promise<void>;
+}
+
+export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
+  order, storeId, onClose, onUpdateItemStatus, onUpdateNote,
+  allReviews = [], reviewPeriods = [], adminUserId, adminUserName, onSubmitBuyerReview, onRefund,
+}) => {
+  const items = order.items;
+  const mainItem = items[0];
+  const [notes, setNotes] = useState(mainItem?.adminNotes ?? '');
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [refunding, setRefunding] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const [refundMethod, setRefundMethod] = useState<RefundMethod>('card');
+  const [cardType, setCardType] = useState('');
+  const [cardLastFour, setCardLastFour] = useState('');
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  const cardDetailsValid = cardType.trim().length > 0 && /^\d{4}$/.test(cardLastFour);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (drawerRef.current) drawerRef.current.style.transform = 'translateX(0)';
+    });
+  }, []);
+
+  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const deliveryFeeTotal = items[0]?.deliveryFee ?? 0;
+  const itemsTotal = subtotal + deliveryFeeTotal;
+
+  const handleStatusUpdate = (newStatus: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string }) => {
+    for (const item of items) {
+      onUpdateItemStatus(order.id, item.productId, newStatus, tracking);
+    }
+  };
+
+  const handleSaveNote = () => {
+    for (const item of items) {
+      onUpdateNote(order.id, item.productId, notes);
+    }
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 2000);
+  };
+
+  const handleRefund = async () => {
+    if (!onRefund) return;
+    if (refundMethod === 'card' && !cardDetailsValid) return;
+    setRefunding(true);
+    setRefundError(null);
+    try {
+      await onRefund(
+        order.id,
+        refundMethod,
+        refundMethod === 'card' ? { cardType: cardType.trim(), cardLastFour } : undefined,
+      );
+    } catch (err: any) {
+      setRefundError(err?.response?.data?.detail ?? err?.message ?? 'Failed to process refund');
+    } finally {
+      setRefunding(false);
+    }
+  };
+
+  const orderLevelStatus = (): OrderStatus => {
+    if (items.every((i) => i.status === 'refunded')) return 'refunded';
+    if (items.every((i) => i.status === 'returned')) return 'returned';
+    if (items.every((i) => i.status === 'cancelled')) return 'cancelled';
+    if (items.every((i) => i.status === 'delivered')) return 'delivered';
+    if (items.some((i) => i.status === 'shipped')) return 'shipped';
+    if (items.some((i) => i.status === 'packing')) return 'packing';
+    if (items.some((i) => i.status === 'picking')) return 'picking';
+    return 'pending';
+  };
+
+  const deliveryMethod = mainItem?.deliveryMethod ?? 'delivery';
+
+  return (
+    <>
+      <div
+        className="pos-drawer-overlay"
+        onClick={onClose}
+        style={{ animation: 'fadeIn 0.15s ease-out' }}
+      />
+      <div
+        ref={drawerRef}
+        className="pos-drawer"
+        style={{
+          transform: 'translateX(100%)',
+          transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          width: '520px', maxWidth: '100vw',
+        }}
+      >
+        <div className="pos-drawer-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ClipboardList size={18} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{order.id}</span>
+            <OrderStatusBadge status={orderLevelStatus()} deliveryMethod={deliveryMethod} />
+          </div>
+          <button onClick={onClose} className="pos-drawer-close">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="pos-drawer-body">
+          {order.isReturn && (
+            <div style={{
+              margin: '16px 20px 0', padding: '10px 14px', borderRadius: '10px',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              fontSize: '0.82rem', color: '#92400e',
+            }}>
+              <RotateCcw size={15} />
+              Return request for order <strong>{order.originalOrderId}</strong>
+            </div>
+          )}
+
+          <div className="pos-drawer-section">
+            <div className="pos-drawer-section-title">Buyer Information</div>
+            <div className="pos-info-grid">
+              <div style={{ gridColumn: '1 / -1' }}>
+                <span className="pos-info-label">Name</span>
+                <span className="pos-info-value">{order.buyerName}</span>
+              </div>
+              {order.buyerEmail && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className="pos-info-label">
+                    <Mail size={12} style={{ marginRight: '4px' }} />
+                    Email
+                  </span>
+                  <span className="pos-info-value">{order.buyerEmail}</span>
+                </div>
+              )}
+              {order.buyerPhone && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className="pos-info-label">
+                    <Phone size={12} style={{ marginRight: '4px' }} />
+                    Phone
+                  </span>
+                  <span className="pos-info-value">{order.buyerPhone}</span>
+                </div>
+              )}
+              {deliveryMethod === 'delivery' && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className="pos-info-label">
+                    <MapPin size={12} style={{ marginRight: '4px' }} />
+                    Delivery Address
+                  </span>
+                  <span className="pos-info-value">{order.deliveryAddress}</span>
+                </div>
+              )}
+              {deliveryMethod === 'pickup' && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className="pos-info-label">
+                    <Store size={12} style={{ marginRight: '4px' }} />
+                    Pickup Location
+                  </span>
+                  <span className="pos-info-value">Customer will pick up from store</span>
+                </div>
+              )}
+              {order.orderNotes && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className="pos-info-label">Order Notes</span>
+                  <span className="pos-info-value" style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>
+                    “{order.orderNotes}”
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pos-drawer-section">
+            <div className="pos-drawer-section-title">Items</div>
+            {items.map((item, idx) => (
+              <div
+                key={item.productId}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '10px 0', borderTop: idx > 0 ? '1px solid var(--border-color)' : 'none',
+                }}
+              >
+                <ProductImage image={item.productImage} alt={item.productName} size="1.6rem" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{item.productName}</div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {item.unit} × {item.quantity}
+                    {deliveryMethod === 'delivery' && item.trackingNumber && (
+                      <span style={{ marginLeft: '8px', color: '#06b6d4' }}>
+                        <Truck size={11} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                        {item.trackingCarrier}: {item.trackingNumber}
+                      </span>
+                    )}
+                    {deliveryMethod === 'delivery' && item.deliveryContactPhone && (
+                      <span style={{ marginLeft: '8px', color: 'var(--text-secondary)' }}>
+                        <Phone size={11} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                        {item.deliveryContactPhone}
+                      </span>
+                    )}
+                  </div>
+                  {item.returnReason && (
+                    <div style={{ fontSize: '0.74rem', color: '#92400e', marginTop: '2px' }}>
+                      <strong>Reason:</strong> {RETURN_REASON_META[item.returnReason].label}
+                      {item.returnReasonNote && <> — {item.returnReasonNote}</>}
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                    {formatCurrency(item.price * item.quantity)}
+                  </div>
+                  {item.mrp != null && (
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                      {formatCurrency(item.mrp)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            <div style={{
+              marginTop: '12px', padding: '12px 0 0', borderTop: '1px solid var(--border-color)',
+              display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Delivery Fee</span>
+                <span>{deliveryMethod === 'pickup' ? '—' : formatCurrency(deliveryFeeTotal)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
+                <span>Your Total</span>
+                <span>{formatCurrency(itemsTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pos-drawer-section">
+            <div className="pos-drawer-section-title">Status Timeline</div>
+            <AdminOrderTimeline
+              status={orderLevelStatus()}
+              createdAt={order.createdAt}
+              updatedAt={order.updatedAt}
+              deliveryMethod={deliveryMethod}
+            />
+          </div>
+
+          {order.isReturn ? (
+            <div className="pos-drawer-section">
+              <div className="pos-drawer-section-title">Refund</div>
+              {orderLevelStatus() === 'refunded' ? (
+                <div style={{
+                  padding: '10px 14px', background: '#dcfce7', borderRadius: '10px',
+                  fontSize: '0.82rem', color: '#16a34a', fontWeight: 600, textAlign: 'center',
+                }}>
+                  Refunded
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    {(['card', 'cash'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setRefundMethod(m)}
+                        disabled={refunding}
+                        style={{
+                          flex: 1, padding: '8px 12px', fontSize: '0.8rem', fontWeight: 600,
+                          borderRadius: '8px', border: `1px solid ${refundMethod === m ? 'var(--accent, #2563eb)' : 'var(--border-color, #e2e8f0)'}`,
+                          background: refundMethod === m ? 'var(--accent, #2563eb)' : 'transparent',
+                          color: refundMethod === m ? '#fff' : 'var(--text-muted)',
+                          cursor: refunding ? 'not-allowed' : 'pointer', textTransform: 'capitalize',
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  {refundMethod === 'card' && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label className="form-label" htmlFor="refund-card-type">Card Type</label>
+                        <input
+                          id="refund-card-type" type="text" className="form-input"
+                          value={cardType}
+                          onChange={(e) => setCardType(e.target.value)}
+                          placeholder="e.g. Visa"
+                          disabled={refunding}
+                          style={{ fontSize: '0.82rem' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label className="form-label" htmlFor="refund-card-last4">Last 4 Digits</label>
+                        <input
+                          id="refund-card-last4" type="text" inputMode="numeric" className="form-input"
+                          value={cardLastFour}
+                          onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                          placeholder="1234"
+                          maxLength={4}
+                          disabled={refunding}
+                          style={{ fontSize: '0.82rem' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleRefund}
+                    disabled={refunding || !onRefund || (refundMethod === 'card' && !cardDetailsValid)}
+                    className="btn btn-primary"
+                    style={{
+                      width: '100%', padding: '10px 16px', fontSize: '0.82rem', fontWeight: 600,
+                      opacity: refunding || !onRefund || (refundMethod === 'card' && !cardDetailsValid) ? 0.6 : 1,
+                      cursor: refunding || !onRefund || (refundMethod === 'card' && !cardDetailsValid) ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {refunding ? 'Processing…' : `Refund via ${refundMethod === 'card' ? 'Card' : 'Cash'}`}
+                  </button>
+                  {refundError && (
+                    <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#dc2626' }}>{refundError}</div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="pos-drawer-section">
+              <div className="pos-drawer-section-title">
+                {deliveryMethod === 'delivery' ? 'Update Status & Tracking' : 'Update Status'}
+              </div>
+              <AdminOrderStatusActions
+                status={orderLevelStatus()}
+                deliveryMethod={deliveryMethod}
+                trackingCarrier={mainItem?.trackingCarrier}
+                trackingNumber={mainItem?.trackingNumber}
+                trackingPhone={mainItem?.deliveryContactPhone}
+                onUpdateStatus={handleStatusUpdate}
+              />
+            </div>
+          )}
+
+          {(orderLevelStatus() === 'delivered') && adminUserId && onSubmitBuyerReview && (
+            <div className="pos-drawer-section">
+              <div className="pos-drawer-section-title">Rate Buyer</div>
+              {(() => {
+                const existingBuyerReview = allReviews.find(
+                  (r) => r.targetType === 'buyer' && r.targetId === order.buyerName && r.orderId === order.id
+                );
+                const reviewPeriod = reviewPeriods.find(
+                  (rp) => rp.orderId === order.id && rp.sellerId === storeId
+                );
+
+                if (existingBuyerReview) {
+                  return (
+                    <div style={{
+                      padding: '10px', borderRadius: '8px', background: 'var(--bg-secondary)',
+                      fontSize: '0.82rem',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                        <span>Your rating for</span>
+                        <strong>{order.buyerName}</strong>:
+                        <StarRating rating={existingBuyerReview.rating} size="sm" />
+                      </div>
+                      {existingBuyerReview.comment && (
+                        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
+                          {existingBuyerReview.comment}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (reviewPeriod && !reviewPeriod.sellerReviewedBuyer) {
+                  return (
+                    <AdminRatingForm
+                      orderId={order.id}
+                      buyerId={order.buyerName}
+                      buyerName={order.buyerName}
+                      reviewerId={adminUserId}
+                      reviewerName={adminUserName ?? 'Store'}
+                      onSubmit={onSubmitBuyerReview}
+                    />
+                  );
+                }
+
+                return (
+                  <div style={{
+                    padding: '10px', borderRadius: '8px', background: 'var(--bg-secondary)',
+                    fontSize: '0.82rem', color: 'var(--text-muted)',
+                  }}>
+                    <Star size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                    Rate this buyer once the order is delivered.
+                  </div>
+                );
+              })()}
+              {(() => {
+                const rp = reviewPeriods.find((p) => p.orderId === order.id && p.sellerId === storeId);
+                if (!rp) return null;
+                return (
+                  <div style={{ marginTop: '8px' }}>
+                    <MutualReviewStatus period={rp} buyerName={order.buyerName} sellerName={adminUserName ?? 'Store'} />
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {!order.isReturn && (
+          <div className="pos-drawer-section" style={{ borderBottom: 'none' }}>
+            <div className="pos-drawer-section-title">Admin Notes</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="form-input"
+                placeholder="Add internal notes about this order..."
+                rows={3}
+                style={{
+                  fontSize: '0.82rem', padding: '10px', resize: 'vertical',
+                  fontFamily: 'inherit', lineHeight: 1.5,
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={handleSaveNote}
+                  className="btn btn-primary"
+                  style={{ padding: '7px 18px', fontSize: '0.78rem', fontWeight: 600 }}
+                >
+                  {noteSaved ? 'Saved!' : 'Save Note'}
+                </button>
+              </div>
+            </div>
+          </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};

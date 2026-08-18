@@ -1,23 +1,28 @@
 import { useState } from "react";
 import { useAuthStore } from "../stores/auth.store";
 import { useMarketplaceStore } from "../stores/marketplace.store";
-import { useSellerStore } from "../stores/seller.store";
 import { useCODStore } from "../stores/cod.store";
 import { useDashboardStore } from "../stores/dashboard.store";
 import { useNavigate } from "react-router-dom";
-import { fetchUserProfile } from "../apis/profile.api";
 import { loginApi } from "../apis/auth.api";
-import { buildFallbackProfile, mapProfileResponse } from "../utils/profile.utils";
+import { buildFallbackProfile, fetchMergedUserProfile } from "../utils/profile.utils";
 
 // Every store below persists (or otherwise holds) data scoped to whichever
-// account is signed in — cart, orders, store profile, COD status. None of it
-// is cleared automatically on a session boundary, so without this a second
-// account signing in on the same browser would see the first account's data.
-// Called on both login and logout so a non-clean exit (closed tab, expired
-// token) can't leak into the next session either.
+// account is signed in — cart, orders, COD status. None of it is cleared
+// automatically on a session boundary, so without this a second account
+// signing in on the same browser would see the first account's data. Called
+// on both login and logout so a non-clean exit (closed tab, expired token)
+// can't leak into the next session either.
+//
+// useStoreStore (the seller/store's own identity from pos_setup) is
+// deliberately NOT reset here — it isn't account-scoped at all, it's the same
+// single store for every buyer and the admin alike. Resetting it used to wipe
+// the store name/address back to blank on every login, and nothing ever
+// re-fetched it afterward (MarketplaceInitializer's loadStoreProfile() only
+// ever runs once, on the app's very first mount) — so it stayed blank for the
+// rest of the session.
 function resetAccountScopedStores() {
   useMarketplaceStore.getState().resetAccountState();
-  useSellerStore.getState().resetProfile();
   useCODStore.getState().resetCOD();
   useDashboardStore.getState().clearState();
 }
@@ -76,10 +81,9 @@ export function useAuth() {
 
       const username = response.user_name || trimmedUserName;
       try {
-        const profileResponse = await fetchUserProfile(username);
-        setUser(mapProfileResponse(profileResponse));
+        setUser(await fetchMergedUserProfile(username));
       } catch {
-        // Fallback user profile if profile service endpoint is unavailable
+        // Fallback user profile if both profile sources are unavailable
         setUser(buildFallbackProfile({ username, name: response.name || trimmedUserName }));
       }
       handleRedirect();

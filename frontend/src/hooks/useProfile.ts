@@ -3,10 +3,9 @@ import {
   fetchDistricts,
   fetchDsDivisions,
   fetchGnDivisions,
-  fetchUserProfile,
   updateUserProfile,
 } from "../apis/profile.api";
-import { fetchMyContactInfo, updateMyContactInfo } from "../apis/auth.api";
+import { updateMyContactInfo } from "../apis/auth.api";
 import type {
   District,
   DsDivision,
@@ -14,6 +13,7 @@ import type {
   UserProfile,
 } from "../types/profile.type";
 import { useAuthStore } from "../stores/auth.store";
+import { fetchMergedUserProfile } from "../utils/profile.utils";
 import axios from "axios";
 
 const defaultProfile: UserProfile = {
@@ -166,27 +166,6 @@ export function useProfile() {
     }
   }
 
-  async function getUserProfile(
-    username: string,
-  ): Promise<UserProfile | undefined> {
-    const response = await fetchUserProfile(username);
-    if (response && typeof response === "object") {
-      return {
-        id: response.id,
-        name: response.full_name,
-        email: response.email,
-        gender: response.gender,
-        zipcode: response.zip_code,
-        phone: response.mobile_1,
-        profilePicture: response.profile_picture,
-        address: response.address,
-        district: response.district,
-        dsDivision: response.district_ds_division,
-        gnDivision: response.gn_division
-      };
-    }
-  }
-
   async function getDistricts(): Promise<void> {
     try {
       const response = await fetchDistricts();
@@ -223,34 +202,12 @@ export function useProfile() {
       try {
         setLoading(true);
 
-        // These two are independent sources — fetched separately so that the
-        // external member portal being unreachable doesn't also block Full Legal
-        // Name / Active Phone Number / Email Address, which come from this app's
-        // own backend (pos_customer) and don't depend on that service at all.
-        const [contact, externalProfile] = await Promise.all([
-          fetchMyContactInfo().catch((err) => {
-            console.error(err);
-            return null;
-          }),
-          getUserProfile(userSession.username).catch((err) => {
-            console.error(err);
-            return undefined;
-          }),
-        ]);
-
+        // Same merge AuthInitializer/login use (fetchMergedUserProfile) —
+        // both pos_customer (own backend, authoritative) and the external
+        // member portal are independently best-effort inside it.
         const merged: UserProfile = {
           ...defaultProfile,
-          ...externalProfile,
-          name: contact?.name ?? externalProfile?.name ?? "",
-          phone: contact?.phone ?? externalProfile?.phone ?? "",
-          email: contact?.email ?? externalProfile?.email ?? "",
-          gender: contact?.gender ?? externalProfile?.gender ?? "",
-          address: contact?.address ?? externalProfile?.address ?? "",
-          // District/DS/GN Division are sourced from this app's own backend —
-          // fall back to the external member portal only if unset there too.
-          district: contact?.district ?? externalProfile?.district ?? undefined,
-          dsDivision: contact?.dsDivision ?? externalProfile?.dsDivision ?? undefined,
-          gnDivision: contact?.gnDivision ?? externalProfile?.gnDivision ?? undefined,
+          ...(await fetchMergedUserProfile(userSession.username)),
         };
         setUser(merged);
         setProfile(merged);

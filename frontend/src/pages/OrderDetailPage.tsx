@@ -1,11 +1,11 @@
 import { useMemo, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, MapPin, CreditCard, Banknote } from 'lucide-react';
-import { useMarketplaceStore } from '../stores/marketplace.store';
+import { ArrowLeft, ShoppingBag, MapPin, CreditCard, Banknote, RotateCcw } from 'lucide-react';
+import { useMarketplaceStore, isReturnOrderId, getReturnedQuantities, getReturnsForOrder } from '../stores/marketplace.store';
 import { useAuthStore } from '../stores/auth.store';
-import { useSellerStore } from '../stores/seller.store';
+import { useStoreStore } from '../stores/store.store';
 import { PaymentStatusBadge } from '../components/marketplace/OrderStatusBadge';
-import { OrderSellerGroup } from '../components/marketplace/OrderSellerGroup';
+import { OrderStoreSection } from '../components/marketplace/OrderStoreSection';
 import Navbar from '../components/Navbar';
 import SidebarMenu from '../components/SidebarMenu';
 import { formatCurrency } from '../utils/currency';
@@ -15,9 +15,13 @@ const OrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const orders = useMarketplaceStore((s) => s.orders);
+  const returnOrders = useMarketplaceStore((s) => s.returnOrders);
   const ordersLoading = useMarketplaceStore((s) => s.ordersLoading);
   const loadOrder = useMarketplaceStore((s) => s.loadOrder);
-  const profile = useSellerStore((s) => s.profile);
+  const loadReturnOrders = useMarketplaceStore((s) => s.loadReturnOrders);
+  const submitReturnRequest = useMarketplaceStore((s) => s.submitReturnRequest);
+  const locations = useMarketplaceStore((s) => s.locations);
+  const profile = useStoreStore((s) => s.profile);
   const allReviews = useMarketplaceStore((s) => s.allReviews);
   const reviewPeriods = useMarketplaceStore((s) => s.reviewPeriods);
   const submitReview = useMarketplaceStore((s) => s.submitReview);
@@ -29,13 +33,34 @@ const OrderDetailPage: React.FC = () => {
   const userId = user?.id ?? 'unknown';
   const userName = user?.name ?? 'You';
 
-  const order = useMemo(() => orders.find((o) => o.id === orderId), [orders, orderId]);
+  const order = useMemo(
+    () => orders.find((o) => o.id === orderId) ?? returnOrders.find((o) => o.id === orderId),
+    [orders, returnOrders, orderId]
+  );
 
   useEffect(() => {
-    if (orderId) {
+    if (!orderId) return;
+    if (isReturnOrderId(orderId)) {
+      // A return's own detail page load (e.g. a hard refresh) — the buyer's
+      // return list may not be populated yet, so fetch it directly.
+      loadReturnOrders();
+    } else {
       loadOrder(orderId);
     }
-  }, [orderId, loadOrder]);
+  }, [orderId, loadOrder, loadReturnOrders]);
+
+  const returnedQuantities = useMemo(
+    () => (order && !order.isReturn ? getReturnedQuantities(returnOrders, order.id) : {}),
+    [returnOrders, order]
+  );
+  const returnsForOrder = useMemo(
+    () => (order && !order.isReturn ? getReturnsForOrder(returnOrders, order.id) : []),
+    [returnOrders, order]
+  );
+  const originalOrder = useMemo(
+    () => (order?.originalOrderId ? orders.find((o) => o.id === order.originalOrderId) : undefined),
+    [orders, order]
+  );
 
   const orderReviews = useMemo(
     () => allReviews.filter((r) => r.orderId === orderId),
@@ -60,6 +85,11 @@ const OrderDetailPage: React.FC = () => {
 
   const handleReviewSubmit = (review: UserReview) => {
     submitReview(review);
+  };
+
+  const handleSubmitReturn: NonNullable<React.ComponentProps<typeof OrderStoreSection>['onSubmitReturn']> = (selections, reason, note, returnLocationCode) => {
+    if (!order) throw new Error('Cannot submit a return before the order has loaded');
+    return submitReturnRequest(order, selections, reason, note, returnLocationCode);
   };
 
   const handleSellerReviewSubmit = (review: UserReview) => {
@@ -136,14 +166,34 @@ const OrderDetailPage: React.FC = () => {
                   <PaymentStatusBadge status={order.paymentStatus} />
                 </div>
               </div>
+
+              {order.isReturn && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px',
+                  padding: '10px 14px', borderRadius: '10px',
+                  background: '#fffbeb', border: '1px solid #fde68a',
+                  fontSize: '0.82rem', color: '#92400e',
+                }}>
+                  <RotateCcw size={15} />
+                  Return request for order{' '}
+                  {originalOrder ? (
+                    <Link to={`/orders/${originalOrder.id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {originalOrder.id}
+                    </Link>
+                  ) : (
+                    <strong>{order.originalOrderId}</strong>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="od-grid">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <OrderSellerGroup
+                <OrderStoreSection
                   seller={profile}
                   items={order.items}
                   orderId={order.id}
+                  orderCreatedAt={order.createdAt}
                   existingReviews={reviewMap}
                   onReviewSubmit={handleReviewSubmit}
                   reviewPeriod={reviewPeriods.find((rp) => rp.orderId === order.id && rp.sellerId === profile.id)}
@@ -151,6 +201,11 @@ const OrderDetailPage: React.FC = () => {
                   userName={userName}
                   onSellerReviewSubmit={handleSellerReviewSubmit}
                   onStartReviewPeriod={handleStartReviewPeriod}
+                  returnedQuantities={returnedQuantities}
+                  returnsForOrder={returnsForOrder}
+                  onSubmitReturn={order.isReturn ? undefined : handleSubmitReturn}
+                  locations={locations}
+                  orderLocationCode={order.locationCode}
                 />
               </div>
 

@@ -1,32 +1,10 @@
 import { useEffect } from "react";
-import type { UserProfile } from "../types/profile.type";
-import { fetchUserProfile } from "../apis/profile.api";
+import { fetchMergedUserProfile } from "../utils/profile.utils";
 import { useAuthStore } from "../stores/auth.store";
 
 export function AuthInitializer() {
   const userSession = useAuthStore((state) => state.userSession);
-    const setUser = useAuthStore((state) => state.setUser);
-
-  async function getUserProfile(
-      username: string,
-    ): Promise<UserProfile | undefined> {
-      const response = await fetchUserProfile(username);
-      if (response && typeof response === "object") {
-        return {
-          id: response.id,
-          name: response.full_name,
-          email: response.email,
-          phone: response.mobile_1,
-          gender: response.gender,
-          zipcode: response.zip_code,
-          profilePicture: response.profile_picture,
-          address: response.address,
-          district: response.district,
-          dsDivision: response.district_ds_division,
-          gnDivision: response.gn_division,
-        };
-      }
-    }
+  const setUser = useAuthStore((state) => state.setUser);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,8 +13,8 @@ export function AuthInitializer() {
       if (!userSession) return;
 
       try {
-        const user = await getUserProfile(userSession.username);
-        if (!cancelled && user) {
+        const user = await fetchMergedUserProfile(userSession.username);
+        if (!cancelled) {
           setUser(user);
         }
       } catch {

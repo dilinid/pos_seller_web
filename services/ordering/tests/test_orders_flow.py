@@ -4,6 +4,18 @@ from sqlmodel import select
 
 from pos_common.models.pos_itemlots import PosItemLots
 from pos_common.models.pos_orddtl import PosOrdDtl
+from pos_common.models.pos_ordhed import OrderStatus, PosOrdHed
+from pos_common.models.pos_setup import PosSetup
+
+
+def _deliver(session, ord_no):
+    """Test-only shortcut for what Picking/Packing would normally do via
+    Ordering's internal API — flips an order straight to DELIVERED so return
+    eligibility (which requires it) can be exercised."""
+    order = session.get(PosOrdHed, ord_no)
+    order.status = OrderStatus.DELIVERED
+    session.add(order)
+    session.commit()
 
 
 def _place(client, payment_method="cod", delivery_method="pickup", address=None, location_code="STORE01"):
@@ -142,3 +154,195 @@ def test_place_order_retries_when_collision_surfaces_at_intermediate_autoflush(c
 
     assert resp.status_code == 201
     assert resp.json()["ordNo"] == "O000002"
+
+
+def _return_body(quantity=1, reason="defective", note=None, return_location_code="STORE02"):
+    return {
+        "items": [{"itemCode": "ITEM001", "quantity": quantity}],
+        "reason": reason,
+        "note": note,
+        "returnLocationCode": return_location_code,
+    }
+
+
+def test_return_before_delivered_fails(client):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    resp = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body())
+    assert resp.status_code == 400
+
+
+def test_return_non_returnable_item_fails(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    lot.is_returnable = False
+    session.add(lot)
+    session.commit()
+
+    resp = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body())
+    assert resp.status_code == 400
+
+
+def test_return_over_ordered_quantity_fails(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    resp = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=99))
+    assert resp.status_code == 400
+
+
+def test_return_success_creates_rtn_order_and_does_not_restock(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    resp = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=2, reason="wrong_size", note="Too small"))
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["id"].startswith("R")
+    assert body["isReturn"] is True
+    assert body["originalOrderId"] == ord_no
+    assert body["items"][0]["returnReason"] == "wrong_size"
+    assert body["items"][0]["returnReasonNote"] == "Too small"
+
+    session.expire_all()
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    assert not lot.itemlots_sih  # restocking only happens on refund, not on filing
+
+
+def test_return_reports_original_and_return_location(client, session):
+    ord_no = _place(client, payment_method="cod", location_code="STORE01").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    resp = client.post(
+        f"/api/marketplace/orders/{ord_no}/return",
+        json=_return_body(quantity=1, return_location_code="STORE02"),
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["locationCode"] == "STORE02"
+    assert body["locationName"] == "Kollupitiya"
+    assert body["locationAddress"] == "No.45, Galle Road"
+    assert body["originalLocationName"] == "Jayakirana"
+    assert body["originalLocationAddress"] == "No.123, Main Road"
+
+    original = client.get(f"/api/marketplace/orders/{ord_no}").json()
+    assert original["locationCode"] == "STORE01"
+    assert original["locationName"] == "Jayakirana"
+
+
+def test_return_exhausted_quantity_fails_on_second_request(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    first = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=2))
+    assert first.status_code == 201
+
+    second = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=1))
+    assert second.status_code == 400
+
+
+def test_return_window_expired_fails(client, session):
+    from datetime import datetime, timedelta
+
+    session.add(PosSetup(id="setup1", setup_rtndays=7))
+    session.commit()
+
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+
+    order = session.get(PosOrdHed, ord_no)
+    order.created_at = datetime.utcnow() - timedelta(days=30)
+    session.add(order)
+    session.commit()
+
+    resp = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body())
+    assert resp.status_code == 400
+
+
+def test_list_my_returns_and_seller_returns(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=1))
+
+    mine = client.get("/api/marketplace/orders/returns")
+    assert mine.status_code == 200
+    assert len(mine.json()) == 1
+
+    seller = client.get("/api/marketplace/seller/orders/returns")
+    assert seller.status_code == 200
+    assert len(seller.json()) == 1
+
+
+def test_refund_marks_refunded_and_restocks(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    rtn_ord_no = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=2)).json()["id"]
+
+    resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
+    assert resp.status_code == 200
+    assert resp.json()["items"][0]["status"] == "refunded"
+
+    session.expire_all()
+    lot = session.exec(select(PosItemLots).where(PosItemLots.itemlots_code == "ITEM001")).first()
+    assert float(lot.itemlots_sih) == 2.0
+
+
+def test_refund_twice_fails(client, session):
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    rtn_ord_no = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=1)).json()["id"]
+
+    client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
+    resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
+    assert resp.status_code == 409
+
+
+def test_refund_defaults_to_card_and_creates_invoice(client, session):
+    from pos_common.models.pos_invdtl import PosInvDtl
+    from pos_common.models.pos_invhed import PosInvHed
+    from pos_common.models.pos_invpay import PosInvPay
+
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    rtn_ord_no = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=2)).json()["id"]
+
+    resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund")
+    assert resp.status_code == 200
+
+    session.expire_all()
+    order = session.get(PosOrdHed, rtn_ord_no)
+    assert order.is_invoiced is True
+    assert order.InvNo
+
+    inv = session.get(PosInvHed, order.InvNo)
+    assert inv.pricemode == "CARD"
+    assert inv.refno == rtn_ord_no
+    assert inv.netamount < 0
+    assert inv.payamount == inv.netamount
+    assert inv.dueamount == 0
+
+    dtl = session.exec(select(PosInvDtl).where(PosInvDtl.InvNo == order.InvNo)).all()
+    assert len(dtl) == 1
+    assert dtl[0].qty == 2
+    assert dtl[0].amount < 0
+
+    pay = session.exec(select(PosInvPay).where(PosInvPay.Invno == order.InvNo)).first()
+    assert pay.paytype == "CRD"
+    assert pay.amount == inv.netamount
+
+
+def test_refund_with_cash_method_uses_cash_paymode(client, session):
+    from pos_common.models.pos_invpay import PosInvPay
+
+    ord_no = _place(client, payment_method="cod").json()["ordNo"]
+    _deliver(session, ord_no)
+    rtn_ord_no = client.post(f"/api/marketplace/orders/{ord_no}/return", json=_return_body(quantity=1)).json()["id"]
+
+    resp = client.post(f"/api/marketplace/seller/orders/returns/{rtn_ord_no}/refund", json={"method": "cash"})
+    assert resp.status_code == 200
+
+    session.expire_all()
+    order = session.get(PosOrdHed, rtn_ord_no)
+    pay = session.exec(select(PosInvPay).where(PosInvPay.Invno == order.InvNo)).first()
+    assert pay.paytype == "CSH"

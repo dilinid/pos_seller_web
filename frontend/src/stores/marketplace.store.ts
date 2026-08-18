@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, UserReview, ReviewPeriod, OrderStatus, PaymentStatus } from '../types/marketplace.type';
-import { fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchSellerOrders, fetchOrderById, fetchStoreLocations, mapOrderRawToOrder, type StoreLocation } from '../apis/marketplace.api';
-import { useSellerStore } from './seller.store';
+import type { Product, CartItem, ProductSubCategory, PaymentMethodType, Order, OrderItem, UserReview, ReviewPeriod, OrderStatus, PaymentStatus, ReturnReason } from '../types/marketplace.type';
+import {
+  fetchMarketplaceProducts, fetchMarketplaceCategories, fetchMyOrders, fetchAdminOrders, fetchOrderById,
+  fetchStoreLocations, mapOrderRawToOrder, submitReturn, fetchMyReturns, fetchSellerReturns, refundReturn,
+  type StoreLocation, type RefundMethod, type RefundCardDetails,
+} from '../apis/marketplace.api';
+import { useStoreStore } from './store.store';
 import { ORDER_STATUS_VALUES } from '../data/order-status';
 
 /** Inserts/updates a single fetched order without disturbing the rest of the
@@ -14,6 +18,37 @@ function upsertOrder(existing: Order[], order: Order): Order[] {
   const updated = [...existing];
   updated[idx] = order;
   return updated;
+}
+
+/** Prefix backend-issued return OrdNos are generated under (e.g. "R000001") —
+ * see RETURN_ORD_NO_PREFIX in services/ordering/app/routes/orders.py. Lets
+ * pages recognize a return order id without needing an extra round-trip (see
+ * Order.isReturn in marketplace.type.ts). */
+export const RETURN_ORDER_ID_PREFIX = 'R';
+
+export function isReturnOrderId(orderId: string): boolean {
+  return orderId.startsWith(RETURN_ORDER_ID_PREFIX);
+}
+
+/** Quantity already returned per productId for a given original order, summed
+ * across every return pseudo-order filed against it — used to cap how much of
+ * an item the buyer can still select on the return request form. */
+export function getReturnedQuantities(returnOrders: Order[], originalOrderId: string): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const ro of returnOrders) {
+    if (ro.originalOrderId !== originalOrderId) continue;
+    for (const item of ro.items) {
+      map[item.productId] = (map[item.productId] ?? 0) + item.quantity;
+    }
+  }
+  return map;
+}
+
+/** All return pseudo-orders filed against a given original order, most recent first. */
+export function getReturnsForOrder(returnOrders: Order[], originalOrderId: string): Order[] {
+  return returnOrders
+    .filter((ro) => ro.originalOrderId === originalOrderId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 interface MarketplaceStoreState {
@@ -68,17 +103,44 @@ interface MarketplaceStoreState {
   orders: Order[];
   ordersLoading: boolean;
   ordersError: string | null;
+  /** Return requests (see Order.isReturn) — not part of `orders` because
+   * loadOrders/loadAdminOrders replace that array wholesale from the backend
+   * on every fetch, which would wipe these out. Kept as its own list instead,
+   * loaded via loadReturnOrders/loadAdminReturnOrders and merged into buyer/
+   * seller order views at read time. */
+  returnOrders: Order[];
+  returnOrdersLoading: boolean;
+  returnOrdersError: string | null;
   allReviews: UserReview[];
   reviewPeriods: ReviewPeriod[];
   loadOrders: () => Promise<void>;
   loadOrder: (orderId: string) => Promise<void>;
-  loadSellerOrders: () => Promise<void>;
+  loadAdminOrders: () => Promise<void>;
+  /** The current buyer's own return requests. */
+  loadReturnOrders: () => Promise<void>;
+  /** Every return request across all customers — backs the store dashboard. */
+  loadAdminReturnOrders: () => Promise<void>;
   addOrder: (order: Order) => void;
+  /** Files a return request against `order` for the selected items/quantities
+   * — creates a real 'RTN' pos_ordhed row via the backend and adds it to
+   * `returnOrders`. Throws if the backend rejects it (not eligible, window
+   * expired, item not returnable, etc.) — callers should catch and surface
+   * the error rather than assume success. */
+  submitReturnRequest: (
+    order: Order,
+    selections: { item: OrderItem; quantity: number }[],
+    reason: ReturnReason,
+    note: string | undefined,
+    returnLocationCode: string,
+  ) => Promise<Order>;
+  /** Store-side action: marks a filed return as refunded, restocking the
+   * returned items. */
+  refundOrder: (rtnOrdNo: string, method?: RefundMethod, cardDetails?: RefundCardDetails) => Promise<Order>;
   updateOrderItemStatus: (orderId: string, productId: string, status: OrderStatus) => void;
   updateOrderPaymentStatus: (orderId: string, status: PaymentStatus) => void;
-  sellerUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string; contactPhone?: string }) => void;
-  sellerUpdateTracking: (orderId: string, productId: string, carrier: string, trackingNumber: string, contactPhone?: string) => void;
-  sellerUpdateNote: (orderId: string, productId: string, note: string) => void;
+  adminUpdateItemStatus: (orderId: string, productId: string, status: OrderStatus, tracking?: { carrier?: string; trackingNumber?: string; contactPhone?: string }) => void;
+  adminUpdateTracking: (orderId: string, productId: string, carrier: string, trackingNumber: string, contactPhone?: string) => void;
+  adminUpdateNote: (orderId: string, productId: string, note: string) => void;
   submitReview: (review: UserReview) => void;
   startReviewPeriod: (orderId: string, sellerId: string, buyerId: string) => void;
   closeReviewPeriod: (orderId: string, sellerId: string) => void;
@@ -122,6 +184,9 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       orders: [],
       ordersLoading: false,
       ordersError: null,
+      returnOrders: [],
+      returnOrdersLoading: false,
+      returnOrdersError: null,
       allReviews: [],
       reviewPeriods: [],
 
@@ -180,8 +245,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         set({ ordersLoading: true, ordersError: null });
         try {
           const raw = await fetchMyOrders();
-          const { id: sellerId, storeName } = useSellerStore.getState().profile;
-          const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
+          const fetched = raw.map(mapOrderRawToOrder);
           // `fetched` is the complete, authoritative list for the signed-in buyer —
           // replace rather than merge, so a previous account's (or a stale) orders
           // can't linger in state past this fetch.
@@ -196,8 +260,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         set({ ordersLoading: true, ordersError: null });
         try {
           const raw = await fetchOrderById(orderId);
-          const { id: sellerId, storeName } = useSellerStore.getState().profile;
-          const order = mapOrderRawToOrder(raw, sellerId, storeName || 'Our Store');
+          const order = mapOrderRawToOrder(raw);
           set({ orders: upsertOrder(get().orders, order), ordersLoading: false });
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load order';
@@ -205,17 +268,38 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         }
       },
 
-      loadSellerOrders: async () => {
+      loadAdminOrders: async () => {
         set({ ordersLoading: true, ordersError: null });
         try {
-          const raw = await fetchSellerOrders();
-          const { id: sellerId, storeName } = useSellerStore.getState().profile;
-          const fetched = raw.map((o) => mapOrderRawToOrder(o, sellerId, storeName || 'Our Store'));
+          const raw = await fetchAdminOrders();
+          const fetched = raw.map(mapOrderRawToOrder);
           // Complete, authoritative list of the store's orders — same reasoning as loadOrders.
           set({ orders: fetched, ordersLoading: false });
         } catch (err: any) {
           const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load orders';
           set({ ordersError: message, ordersLoading: false });
+        }
+      },
+
+      loadReturnOrders: async () => {
+        set({ returnOrdersLoading: true, returnOrdersError: null });
+        try {
+          const raw = await fetchMyReturns();
+          set({ returnOrders: raw.map(mapOrderRawToOrder), returnOrdersLoading: false });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load returns';
+          set({ returnOrdersError: message, returnOrdersLoading: false });
+        }
+      },
+
+      loadAdminReturnOrders: async () => {
+        set({ returnOrdersLoading: true, returnOrdersError: null });
+        try {
+          const raw = await fetchSellerReturns();
+          set({ returnOrders: raw.map(mapOrderRawToOrder), returnOrdersLoading: false });
+        } catch (err: any) {
+          const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to load returns';
+          set({ returnOrdersError: message, returnOrdersLoading: false });
         }
       },
 
@@ -283,6 +367,25 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
       setDirectBuyItem: (item) => set({ directBuyItem: item }),
 
       addOrder: (order) => set({ orders: [order, ...get().orders] }),
+      submitReturnRequest: async (order, selections, reason, note, returnLocationCode) => {
+        const raw = await submitReturn(order.id, {
+          items: selections.map(({ item, quantity }) => ({ itemCode: item.productId, quantity })),
+          reason,
+          note: note?.trim() || undefined,
+          returnLocationCode,
+        });
+        const returnOrder = mapOrderRawToOrder(raw);
+        set({ returnOrders: [returnOrder, ...get().returnOrders] });
+        return returnOrder;
+      },
+      refundOrder: async (rtnOrdNo, method, cardDetails) => {
+        const raw = await refundReturn(rtnOrdNo, method, cardDetails);
+        const refunded = mapOrderRawToOrder(raw);
+        set({
+          returnOrders: get().returnOrders.map((o) => (o.id === refunded.id ? refunded : o)),
+        });
+        return refunded;
+      },
       updateOrderItemStatus: (orderId, productId, status) => {
         set({
           orders: get().orders.map((o) =>
@@ -298,7 +401,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ),
         });
       },
-      sellerUpdateItemStatus: (orderId, productId, status, tracking) => {
+      adminUpdateItemStatus: (orderId, productId, status, tracking) => {
         set({
           orders: get().orders.map((o) =>
             o.id === orderId
@@ -321,7 +424,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ),
         });
       },
-      sellerUpdateTracking: (orderId, productId, carrier, trackingNumber, contactPhone) => {
+      adminUpdateTracking: (orderId, productId, carrier, trackingNumber, contactPhone) => {
         set({
           orders: get().orders.map((o) =>
             o.id === orderId
@@ -338,7 +441,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ),
         });
       },
-      sellerUpdateNote: (orderId, productId, note) => {
+      adminUpdateNote: (orderId, productId, note) => {
         set({
           orders: get().orders.map((o) =>
             o.id === orderId
@@ -346,7 +449,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
                   ...o,
                   updatedAt: new Date().toISOString(),
                   items: o.items.map((item) =>
-                    item.productId === productId ? { ...item, sellerNotes: note } : item
+                    item.productId === productId ? { ...item, adminNotes: note } : item
                   ),
                 }
               : o
@@ -388,12 +491,11 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         }
 
         if (review.targetType === 'product') {
-          const orderItem = state.orders
-            .flatMap((o) => o.items)
-            .find((i) => i.productId === review.targetId && i.sellerId === state.orders.flatMap(o => o.items).find(i => i.productId === review.targetId)?.sellerId);
+          const orderItem = state.orders.flatMap((o) => o.items).find((i) => i.productId === review.targetId);
           if (orderItem) {
+            const storeId = useStoreStore.getState().profile.id;
             updates.reviewPeriods = (updates.reviewPeriods || state.reviewPeriods).map((rp) =>
-              rp.orderId === review.orderId && rp.sellerId === orderItem.sellerId
+              rp.orderId === review.orderId && rp.sellerId === storeId
                 ? { ...rp, buyerReviewedProduct: true } : rp
             );
           }
@@ -422,7 +524,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
 
         if (!period.buyerReviewedProduct) {
           const order = get().orders.find((o) => o.id === orderId);
-          const items = order?.items.filter((i) => i.sellerId === sellerId) ?? [];
+          const items = order?.items ?? [];
           items.forEach((item) => {
             autoReviews.push({
               id: `auto-${orderId}-${sellerId}-${item.productId}`,
@@ -517,6 +619,9 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           orders: [],
           ordersLoading: false,
           ordersError: null,
+          returnOrders: [],
+          returnOrdersLoading: false,
+          returnOrdersError: null,
           allReviews: [],
           reviewPeriods: [],
         }),
@@ -528,6 +633,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
         deliveryAddress: state.deliveryAddress,
         deliveryDistrict: state.deliveryDistrict,
         orders: state.orders,
+        returnOrders: state.returnOrders,
         allReviews: state.allReviews,
         reviewPeriods: state.reviewPeriods,
         selectedLocation: state.selectedLocation,
@@ -552,9 +658,14 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
               ...item,
               trackingNumber: (item as any).trackingNumber,
               trackingCarrier: (item as any).trackingCarrier,
-              sellerNotes: (item as any).sellerNotes,
+              adminNotes: (item as any).adminNotes,
             })),
           }));
+        // Same status-sanity guard as migratedOrders — a returnOrders entry with
+        // an unrecognized item status would otherwise crash OrderStatusBadge.
+        const migratedReturnOrders: Order[] = (p?.returnOrders ?? []).filter(
+          (o) => o.items.every((item) => (ORDER_STATUS_VALUES as string[]).includes(item.status))
+        );
         const oldUserReviews = (p as any)?.userReviews ?? [];
         const migratedReviews: UserReview[] = (p?.allReviews ?? []).map((r) => ({
           ...r,
@@ -586,6 +697,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>()(
           ...current,
           ...p,
           orders: migratedOrders,
+          returnOrders: migratedReturnOrders,
           allReviews,
           reviewPeriods: p?.reviewPeriods ?? [],
           cart: (p?.cart ?? []).map((item) => ({

@@ -1,6 +1,4 @@
-"""Owned by: external legacy POS application (store configuration). Shared-read
-only — no service in this repo writes it."""
-
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from sqlalchemy import DECIMAL
@@ -23,3 +21,4 @@ class PosSetup(SQLModel, table=True):
     setup_vatacc: Optional[str] = Field(default=None, max_length=20)
     setup_vatexpacc: Optional[str] = Field(default=None, max_length=20)
     setup_pointscheme: Optional[int] = Field(default=None)
+    setup_rtndays: Optional[int] = Field(default=None)
