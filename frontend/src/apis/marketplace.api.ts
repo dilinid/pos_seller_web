@@ -233,12 +233,24 @@ export async function fetchSellerReturns(): Promise<OrderRaw[]> {
 
 export type RefundMethod = 'card' | 'cash';
 
+/** Card reference details the cashier enters when refunding to a card — no
+ * real payment gateway here, this is just kept as a paper trail on the
+ * refund's pos_invpay row (paytypedesc/crdcardno). */
+export interface RefundCardDetails {
+  cardType: string;
+  cardLastFour: string;
+}
+
 /** Store-side action: marks a filed return as refunded, and records it as an
  * invoice (pos_invhed/invdtl/invpay) paid out via the given method. */
-export async function refundReturn(rtnOrdNo: string, method: RefundMethod = 'card'): Promise<OrderRaw> {
+export async function refundReturn(
+  rtnOrdNo: string,
+  method: RefundMethod = 'card',
+  cardDetails?: RefundCardDetails,
+): Promise<OrderRaw> {
   const response = await api.post<OrderRaw>(
     `/api/marketplace/seller/orders/returns/${encodeURIComponent(rtnOrdNo)}/refund`,
-    { method },
+    { method, ...(method === 'card' ? cardDetails : {}) },
   );
   return response.data;
 }

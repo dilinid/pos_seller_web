@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { ClipboardList, Search, Clock, CheckCircle, Truck, XCircle, Package, Store, RotateCcw } from 'lucide-react';
 import type { Order, OrderStatus } from '../types/marketplace.type';
-import type { RefundMethod } from '../apis/marketplace.api';
+import type { RefundMethod, RefundCardDetails } from '../apis/marketplace.api';
 import { useAuthStore } from '../stores/auth.store';
 import { useStoreStore } from '../stores/store.store';
 import { useMarketplaceStore } from '../stores/marketplace.store';
@@ -88,8 +88,8 @@ const AdminOrders: React.FC = () => {
   }, [loadAdminOrders, loadAdminReturnOrders]);
 
   const handleRefund = useCallback(
-    async (rtnOrdNo: string, refundMethod: RefundMethod) => {
-      await refundOrder(rtnOrdNo, refundMethod);
+    async (rtnOrdNo: string, refundMethod: RefundMethod, cardDetails?: RefundCardDetails) => {
+      await refundOrder(rtnOrdNo, refundMethod, cardDetails);
     },
     [refundOrder]
   );

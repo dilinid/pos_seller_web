@@ -138,6 +138,12 @@ class ReturnRequestBody(BaseModel):
 
 class RefundRequestBody(BaseModel):
     method: RefundMethodLiteral = "card"
+    # Card-reference details entered by the cashier when refunding to a card —
+    # there's no real payment gateway here (see CARD_PAY_CODE above), so these
+    # are just kept as a paper trail on the refund's pos_invpay row. Required
+    # only when method == "card"; ignored for cash refunds.
+    cardType: Optional[str] = Field(default=None, max_length=20)
+    cardLastFour: Optional[str] = Field(default=None, min_length=4, max_length=4)
 
 
 class OrderItemOut(BaseModel):
@@ -878,6 +884,15 @@ def refund_return(
             detail=f"Refund payment mode '{body.method}' is not configured",
         )
 
+    card_type = body.cardType.strip() if body.cardType else None
+    card_last_four = body.cardLastFour.strip() if body.cardLastFour else None
+    if body.method == "card":
+        if not card_type or not card_last_four or not card_last_four.isdigit():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Card type and last 4 digits are required to refund via card",
+            )
+
     lines = session.exec(
         select(PosOrdDtl).where(PosOrdDtl.OrdNo == rtn_ord_no, PosOrdDtl.cancel.isnot(True))
     ).all()
@@ -948,7 +963,8 @@ def refund_return(
                     created_at=now,
                     created_by_id=created_by_id,
                     storeId=order.storeId,
-                    paytypedesc=refund_paymode.pay_typedesc,
+                    paytypedesc=card_type if body.method == "card" else refund_paymode.pay_typedesc,
+                    crdcardno=card_last_four if body.method == "card" else None,
                     payamt=-net_amount,
                     amount=-net_amount,
                     cancel=False,

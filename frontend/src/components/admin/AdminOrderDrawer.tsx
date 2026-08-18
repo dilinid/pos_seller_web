@@ -10,7 +10,7 @@ import { AdminRatingForm } from '../marketplace/AdminRatingForm';
 import { MutualReviewStatus } from '../marketplace/MutualReviewStatus';
 import { RETURN_REASON_META } from '../../data/order-status';
 import { formatCurrency } from '../../utils/currency';
-import type { RefundMethod } from '../../apis/marketplace.api';
+import type { RefundMethod, RefundCardDetails } from '../../apis/marketplace.api';
 
 interface AdminOrderDrawerProps {
   order: Order;
@@ -25,7 +25,7 @@ interface AdminOrderDrawerProps {
   onSubmitBuyerReview?: (review: UserReview) => void;
   /** Store-side action for a filed return (order.isReturn, status 'returned')
    * — marks it refunded and restocks the returned items. */
-  onRefund?: (rtnOrdNo: string, method: RefundMethod) => Promise<void>;
+  onRefund?: (rtnOrdNo: string, method: RefundMethod, cardDetails?: RefundCardDetails) => Promise<void>;
 }
 
 export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
@@ -39,7 +39,11 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
   const [refundMethod, setRefundMethod] = useState<RefundMethod>('card');
+  const [cardType, setCardType] = useState('');
+  const [cardLastFour, setCardLastFour] = useState('');
   const drawerRef = useRef<HTMLDivElement>(null);
+
+  const cardDetailsValid = cardType.trim().length > 0 && /^\d{4}$/.test(cardLastFour);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -75,10 +79,15 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
 
   const handleRefund = async () => {
     if (!onRefund) return;
+    if (refundMethod === 'card' && !cardDetailsValid) return;
     setRefunding(true);
     setRefundError(null);
     try {
-      await onRefund(order.id, refundMethod);
+      await onRefund(
+        order.id,
+        refundMethod,
+        refundMethod === 'card' ? { cardType: cardType.trim(), cardLastFour } : undefined,
+      );
     } catch (err: any) {
       setRefundError(err?.response?.data?.detail ?? err?.message ?? 'Failed to process refund');
     } finally {
@@ -301,13 +310,41 @@ export const AdminOrderDrawer: React.FC<AdminOrderDrawerProps> = ({
                       </button>
                     ))}
                   </div>
+                  {refundMethod === 'card' && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label className="form-label" htmlFor="refund-card-type">Card Type</label>
+                        <input
+                          id="refund-card-type" type="text" className="form-input"
+                          value={cardType}
+                          onChange={(e) => setCardType(e.target.value)}
+                          placeholder="e.g. Visa"
+                          disabled={refunding}
+                          style={{ fontSize: '0.82rem' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label className="form-label" htmlFor="refund-card-last4">Last 4 Digits</label>
+                        <input
+                          id="refund-card-last4" type="text" inputMode="numeric" className="form-input"
+                          value={cardLastFour}
+                          onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                          placeholder="1234"
+                          maxLength={4}
+                          disabled={refunding}
+                          style={{ fontSize: '0.82rem' }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={handleRefund}
-                    disabled={refunding || !onRefund}
+                    disabled={refunding || !onRefund || (refundMethod === 'card' && !cardDetailsValid)}
                     className="btn btn-primary"
                     style={{
                       width: '100%', padding: '10px 16px', fontSize: '0.82rem', fontWeight: 600,
-                      opacity: refunding || !onRefund ? 0.6 : 1, cursor: refunding || !onRefund ? 'not-allowed' : 'pointer',
+                      opacity: refunding || !onRefund || (refundMethod === 'card' && !cardDetailsValid) ? 0.6 : 1,
+                      cursor: refunding || !onRefund || (refundMethod === 'card' && !cardDetailsValid) ? 'not-allowed' : 'pointer',
                     }}
                   >
                     {refunding ? 'Processing…' : `Refund via ${refundMethod === 'card' ? 'Card' : 'Cash'}`}
