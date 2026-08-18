@@ -43,7 +43,7 @@ def customer(session):
     session.add(PosItemLots(itemlots_code="ITEM001", itemlots_loc="STORE01", itemlots_desc="Widget", itemlots_uom="EA", itemlots_active=True))
     session.add(PosPayMode(pay_code="CRD", pay_typedesc="Card"))
     session.add(PosPayMode(pay_code="CSH", pay_typedesc="Cash"))
-    session.add(PosLoc(loc_code="STORE01", loc_desc="Jayakirana", loc_address="No.123, Main Road", loc_active=True))
+    session.add(PosLoc(loc_code="STORE01", loc_desc="Marketplace", loc_address="No.123, Main Road", loc_active=True))
     session.add(PosLoc(loc_code="STORE02", loc_desc="Kollupitiya", loc_address="No.45, Galle Road", loc_active=True))
     session.commit()
     return cust

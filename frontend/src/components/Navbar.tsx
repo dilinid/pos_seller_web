@@ -244,7 +244,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   lineHeight: 1.1,
                 }}
               >
-                Jayakirana
+                Marketplace
               </h1>
               <span
                 style={{
@@ -433,7 +433,7 @@ const Navbar: React.FC<NavbarProps> = ({
               <span>Checking account...</span>
             </div>
           ) : isAuthenticated ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               {isAdminUser && (
                 <button
                   onClick={() => navigate('/admin/dashboard')}

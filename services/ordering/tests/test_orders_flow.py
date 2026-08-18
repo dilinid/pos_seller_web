@@ -223,12 +223,12 @@ def test_return_reports_original_and_return_location(client, session):
     assert body["locationCode"] == "STORE02"
     assert body["locationName"] == "Kollupitiya"
     assert body["locationAddress"] == "No.45, Galle Road"
-    assert body["originalLocationName"] == "Jayakirana"
+    assert body["originalLocationName"] == "Marketplace"
     assert body["originalLocationAddress"] == "No.123, Main Road"
 
     original = client.get(f"/api/marketplace/orders/{ord_no}").json()
     assert original["locationCode"] == "STORE01"
-    assert original["locationName"] == "Jayakirana"
+    assert original["locationName"] == "Marketplace"
 
 
 def test_return_exhausted_quantity_fails_on_second_request(client, session):
